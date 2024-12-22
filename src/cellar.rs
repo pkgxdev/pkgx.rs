@@ -3,6 +3,7 @@ use crate::config::Config;
 use std::cmp::Ordering;
 use std::path::PathBuf;
 use std::error::Error;
+use semver::Version;
 use tokio::fs;
 
 pub async fn ls(project: &str, config: &Config) -> Result<Vec<Installation>, Box<dyn std::error::Error>> {

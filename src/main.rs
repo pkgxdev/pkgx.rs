@@ -18,7 +18,7 @@ fn main() {
 
 async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::new()?;
-    sync::replace(&config)?;
+    sync::replace(&config).await?;
 
     let pkg = PantryEntry::new("git-scm.org".to_string(), &config)?;
     let graph = hydrate(pkg.dependencies, |pkgname| Ok(PantryEntry::new(pkgname, &config)?.dependencies)).await;
