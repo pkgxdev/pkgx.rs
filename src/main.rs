@@ -1,10 +1,16 @@
 mod config;
+mod pantry;
+mod sync;
 
+use pantry::PantryEntry;
 use crate::config::Config;
-use std::io;
 
-fn main() -> io::Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::new()?;
-    println!("Pantry directory: {:?}", config.pantry_dir);
+    sync::replace(&config)?;
+
+    let pkg = PantryEntry::new("git-scm.org".to_string(), &config)?;
+    println!("pkg {:?}", pkg);
+
     Ok(())
 }

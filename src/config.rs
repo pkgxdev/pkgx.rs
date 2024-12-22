@@ -13,15 +13,15 @@ impl Config {
         Ok(Self { pantry_dir })
     }
 
-    fn get_pantry_dir() {
+    fn get_pantry_dir() -> io::Result<PathBuf> {
         if let Ok(env_dir) = env::var("PKGX_PANTRY_DIR") {
-            let mut path = PathBuf::from(env_dir);
+            let path = PathBuf::from(env_dir);
             if !path.is_absolute() {
-                return env::current_dir()?.join(path);
+                return Ok(env::current_dir()?.join(path));
             } else {
-                return Ok(Self { pantry_dir: path });
+                return Ok(path);
             }
         }
-        return Ok(dirs_next::data_dir().unwrap().join("pkgx/pantry"));
+        return Ok(dirs_next::data_dir().unwrap().join("pkgx/pantry2"));
     }
 }
