@@ -12,7 +12,7 @@ impl PantryEntry {
   pub fn new(pkgname: String, config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
     let entry = RawPantryEntry::new(pkgname, config)?;
     let dependencies = entry.dependencies.iter()
-      .map(|(k, v)| PackageReq::new(k.clone(), VersionReq::parse(v).unwrap()))
+      .map(|(k, v)| PackageReq{ project: k.clone(), constraint: VersionReq::parse(v).unwrap() })
       .collect();
     Ok(Self { dependencies })
   }
