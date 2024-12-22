@@ -1,4 +1,5 @@
-# `pkgx` rust rewrite
+# `pkgx` Rust Rewrite
 
-we like deno, but the resulting binary `pkgx` is 90MB. Rust will produce an
-even faster binary which should be pretty tiny.
+We like deno, but the resulting binary `pkgx` is 90MB. Rust will produce an
+super fast binary that is much smaller removing the current “initialization
+time” that the deno runtime imposes (which is >50ms).
