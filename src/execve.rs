@@ -1,5 +1,5 @@
+use nix::unistd::execve as nix_execve;
 use std::ffi::CString;
-use std::ptr;
 use std::{collections::HashMap, error::Error};
 
 pub fn execve(
@@ -22,8 +22,6 @@ pub fn execve(
                 .map_err(|e| format!("Failed to convert argument to CString: {}", e))
         })
         .collect::<Result<_, _>>()?;
-    let mut c_args_ptrs: Vec<*const i8> = c_args.iter().map(|arg| arg.as_ptr()).collect();
-    c_args_ptrs.push(ptr::null()); // Null-terminate the arguments array
 
     // Convert the environment to a Vec of `KEY=VALUE` strings
     let env_vars: Vec<String> = env
@@ -39,20 +37,12 @@ pub fn execve(
                 .map_err(|e| format!("Failed to convert environment variable to CString: {}", e))
         })
         .collect::<Result<_, _>>()?;
-    let mut c_env_ptrs: Vec<*const i8> = c_env.iter().map(|env| env.as_ptr()).collect();
-    c_env_ptrs.push(ptr::null()); // Null-terminate the environment array
 
-    unsafe {
-        // Replace the process with the new command, arguments, and environment
-        if libc::execve(
-            c_command.as_ptr(),
-            c_args_ptrs.as_ptr(),
-            c_env_ptrs.as_ptr(),
-        ) == -1
-        {
-            let err = *libc::__error();
-            return Err(format!("execve failed with errno: {}", err).into());
-        }
+    // Replace the process with the new command, arguments, and environment
+    let execve_result = nix_execve(&c_command, &c_args, &c_env);
+    if execve_result.is_err() {
+        let errno = execve_result.unwrap_err();
+        return Err(format!("execve failed with errno: {}", errno).into());
     }
 
     Ok(())
