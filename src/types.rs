@@ -172,7 +172,7 @@ pub fn host() -> (Host, Arch) {
         "x86_64" => Arch::X86_64,
         _ => panic!("Unsupported architecture"),
     };
-    return (host, arch);
+    (host, arch)
 }
 
 impl fmt::Display for Host {

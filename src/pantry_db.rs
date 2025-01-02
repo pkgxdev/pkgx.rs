@@ -49,7 +49,7 @@ pub fn cache(config: &Config) -> Result<Connection, Box<dyn std::error::Error>> 
 
     let tx = conn.transaction()?;
 
-    for pkg in pantry::ls(&config) {
+    for pkg in pantry::ls(config) {
         for program in pkg.programs {
             tx.execute(
                 "INSERT INTO provides (project, program) VALUES (?1, ?2);",
@@ -116,7 +116,7 @@ pub fn convert(
 
     for arg in args {
         let mut pkg = PackageReq::parse(arg)?;
-        if let Ok(project) = which(&pkg.project, &conn) {
+        if let Ok(project) = which(&pkg.project, conn) {
             pkg.project = project;
             pkgs.push(pkg);
         } else {

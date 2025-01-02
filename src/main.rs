@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         sync::replace(&config).await?;
         pantry_db::cache(&config)?
     } else {
-        rusqlite::Connection::open(&config.pantry_dir.parent().unwrap().join("pantry.db"))?
+        rusqlite::Connection::open(config.pantry_dir.parent().unwrap().join("pantry.db"))?
     };
 
     if !args.is_empty() && !args[0].contains('/') {

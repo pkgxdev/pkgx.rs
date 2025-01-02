@@ -33,7 +33,7 @@ pub async fn install<F>(
 where
     F: FnMut(InstallEvent) + Send + 'static,
 {
-    let url = inventory::get_url(&pkg, &config);
+    let url = inventory::get_url(pkg, config);
     let client = Client::new();
     let rsp = client.get(url).send().await?.error_for_status()?;
 
@@ -63,11 +63,11 @@ where
     archive.unpack(&config.pkgx_dir).await?;
 
     let installation = Installation {
-        path: cellar::dst(&pkg, &config),
+        path: cellar::dst(pkg, config),
         pkg: pkg.clone(),
     };
 
-    symlink(&installation, &config).await?;
+    symlink(&installation, config).await?;
 
     Ok(installation)
 }
@@ -79,7 +79,7 @@ use std::fs;
 use std::path::Path;
 
 async fn symlink(installation: &Installation, config: &Config) -> Result<(), Box<dyn Error>> {
-    let mut versions: VecDeque<(Version, PathBuf)> = cellar::ls(&installation.pkg.project, &config)
+    let mut versions: VecDeque<(Version, PathBuf)> = cellar::ls(&installation.pkg.project, config)
         .await?
         .into_iter()
         .map(|entry| (entry.pkg.version, entry.path))
@@ -109,7 +109,7 @@ async fn symlink(installation: &Installation, config: &Config) -> Result<(), Box
         return Ok(());
     }
 
-    make_symlink(shelf, &format!("v{}", v_mm), &installation).await?;
+    make_symlink(shelf, &format!("v{}", v_mm), installation).await?;
 
     // bug in semverator
     let major_range = VersionReq::parse(&format!("^{}", installation.pkg.version.major))?;
@@ -127,12 +127,12 @@ async fn symlink(installation: &Installation, config: &Config) -> Result<(), Box
     make_symlink(
         shelf,
         &format!("v{}", installation.pkg.version.major),
-        &installation,
+        installation,
     )
     .await?;
 
     if installation.pkg.version == newest.0 {
-        make_symlink(shelf, "v*", &installation).await?;
+        make_symlink(shelf, "v*", installation).await?;
     }
 
     Ok(())

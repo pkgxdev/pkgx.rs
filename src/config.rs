@@ -26,7 +26,7 @@ fn get_dist_url() -> String {
     if let Ok(env_url) = env::var("PKGX_DIST_URL") {
         return env_url;
     }
-    return "https://dist.pkgx.dev".to_string();
+    "https://dist.pkgx.dev".to_string()
 }
 
 fn get_pantry_dir() -> io::Result<PathBuf> {
@@ -38,7 +38,7 @@ fn get_pantry_dir() -> io::Result<PathBuf> {
             return Ok(path);
         }
     }
-    return Ok(dirs_next::cache_dir().unwrap().join("pkgx/pantry"));
+    Ok(dirs_next::cache_dir().unwrap().join("pkgx/pantry"))
 }
 
 fn get_pkgx_dir() -> io::Result<PathBuf> {

@@ -35,7 +35,7 @@ impl PantryEntry {
                 .iter()
                 .map(|(k, v)| {
                     // if v is a number, prefix with ^
-                    let v = if v.chars().next().unwrap().is_digit(10) {
+                    let v = if v.chars().next().unwrap().is_ascii_digit() {
                         format!("^{}", v)
                     } else {
                         v.clone()

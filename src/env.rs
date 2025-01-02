@@ -8,6 +8,7 @@ pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
 
     let projects: HashSet<_> = installations.iter().map(|i| &i.pkg.project).collect();
 
+    #[allow(clippy::unnecessary_to_owned)]
     let has_cmake = projects.contains(&"cmake.org".to_string());
     let archaic = true;
 
@@ -36,11 +37,7 @@ pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
         ] {
             if let Some(suffixes) = suffixes(key) {
                 for suffix in suffixes {
-                    let path = installation
-                        .path
-                        .join(&suffix)
-                        .to_string_lossy()
-                        .to_string();
+                    let path = installation.path.join(suffix).to_string_lossy().to_string();
                     if !path.is_empty() {
                         vars.entry(key.as_ref().to_string())
                             .or_insert_with(OrderedSet::new)
@@ -73,7 +70,7 @@ pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
         }
     }
 
-    if let Some(library_path) = vars.get(&EnvKey::LibraryPath.as_ref().to_string()) {
+    if let Some(library_path) = vars.get(EnvKey::LibraryPath.as_ref()) {
         let paths = library_path.to_vec();
         vars.entry(EnvKey::LdLibraryPath.as_ref().to_string())
             .or_insert_with(OrderedSet::new)
@@ -102,16 +99,20 @@ use strum_macros::{AsRefStr, EnumString};
 #[derive(Debug, EnumString, AsRefStr, PartialEq, Eq, Hash, Clone)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")] // Optional: enforce case style
 enum EnvKey {
+    #[allow(clippy::upper_case_acronyms)]
     PATH,
+    #[allow(clippy::upper_case_acronyms)]
     MANPATH,
     PkgConfigPath,
     LibraryPath,
     LdLibraryPath,
+    #[allow(clippy::upper_case_acronyms)]
     CPATH,
     XdgDataDirs,
     CmakePrefixPath,
     DyldFallbackLibraryPath,
     SslCertFile,
+    #[allow(clippy::upper_case_acronyms)]
     LDFLAGS,
     PkgxDir,
     AclocalPath,
@@ -172,5 +173,5 @@ pub fn mix(input: HashMap<String, Vec<String>>) -> HashMap<String, String> {
         rv.insert(key, values.join(":"));
     }
 
-    return rv;
+    rv
 }

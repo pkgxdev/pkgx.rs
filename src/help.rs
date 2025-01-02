@@ -71,7 +71,7 @@ environmental influencers:
 
         let re = Regex::new("(?m)#.*$").unwrap();
 
-        re.replace_all(&usage, |caps: &regex::Captures| {
+        re.replace_all(usage, |caps: &regex::Captures| {
             dim(caps.get(0).unwrap().as_str())
         })
         .to_string()

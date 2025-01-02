@@ -25,13 +25,13 @@ impl Error for DownloadError {}
 
 // Select function to pick a version
 pub async fn select(rq: &PackageReq, config: &Config) -> Result<Option<Version>, Box<dyn Error>> {
-    let versions = ls(&rq, config).await?;
+    let versions = ls(rq, config).await?;
 
-    return Ok(versions
+    Ok(versions
         .iter()
         .filter(|v| rq.constraint.satisfies(v))
         .max()
-        .cloned());
+        .cloned())
 }
 
 // Get function to fetch available versions
@@ -56,7 +56,7 @@ pub async fn ls(rq: &PackageReq, config: &Config) -> Result<Vec<Version>, Box<dy
     let releases = rsp.text().await?;
     let mut versions: Vec<Version> = releases
         .lines()
-        .map(|line| Version::parse(line))
+        .map(Version::parse)
         .filter_map(Result::ok)
         .collect();
 
