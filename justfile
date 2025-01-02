@@ -8,4 +8,5 @@ bench PKG:
 
 [group("benchmarks"), no-cd]
 graph *ARGS:
-  cargo flamegraph --root -- {{ARGS}}
+  cargo flamegraph --flamecharto --root -- {{ARGS}}
+  open flamegraph.svg
