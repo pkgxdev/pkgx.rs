@@ -1,0 +1,39 @@
+use crate::config::Config;
+use async_compression::tokio::bufread::GzipDecoder;
+use futures::TryStreamExt;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
+use std::path::PathBuf;
+use tokio_tar::Archive;
+
+pub fn should(config: &Config) -> bool {
+    !config.pantry_dir.join("projects").exists()
+}
+
+pub async fn replace(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    let url = "https://dist.pkgx.dev/pantry.tgz";
+    std::fs::create_dir_all(config.pantry_dir.clone())?;
+    download_and_extract_pantry(url, &config.pantry_dir).await
+}
+
+async fn download_and_extract_pantry(
+    url: &str,
+    dest: &PathBuf,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Step 1: Download the pantry.tgz file
+    let rsp = reqwest::get(url).await?.error_for_status()?;
+
+    let stream = rsp.bytes_stream();
+
+    let stream = stream
+        .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e))
+        .into_async_read();
+    let stream = stream.compat();
+
+    let decoder = GzipDecoder::new(stream);
+
+    // Step 3: Extract the tar archive
+    let mut archive = Archive::new(decoder);
+    archive.unpack(dest).await?;
+
+    Ok(())
+}

@@ -1,0 +1,26 @@
+[package]
+name = "pkgx"
+description = "Run anything"
+version = "2.0.0-rc"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.95"
+dirs-next = "2.0"
+libsemverator = "0.7.1"
+semver = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+tokio = { version = "1.0", features = ["full", "rt-multi-thread"] }
+tokio-stream = "0.1"
+strum = "0.24"
+strum_macros = "0.24"
+libc = "0.2.169"
+rusqlite = "0.32.1"
+regex = "1.11.1"
+reqwest = { version = "0.11", features = ["stream", "blocking"] }
+async-compression = { version = "0.4", features = ["tokio", "gzip"] }
+tokio-tar = "0.3.1"
+tokio-util = {version = "0.7.13", features = ["compat"]}
+futures = "0.3.31"
+indicatif = "0.17.9"
