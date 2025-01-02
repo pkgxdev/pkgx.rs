@@ -1,4 +1,4 @@
-use async_compression::tokio::bufread::GzipDecoder;
+use async_compression::tokio::bufread::XzDecoder;
 use reqwest::Client;
 use std::{error::Error, path::PathBuf};
 use tokio_tar::Archive;
@@ -56,7 +56,7 @@ where
     let stream = stream.compat();
 
     // Step 2: Create a Gzip decoder
-    let decoder = GzipDecoder::new(stream);
+    let decoder = XzDecoder::new(stream);
 
     // Step 3: Extract the tar archive
     let mut archive = Archive::new(decoder);

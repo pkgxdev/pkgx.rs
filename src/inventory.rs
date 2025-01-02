@@ -80,7 +80,7 @@ pub async fn ls(rq: &PackageReq, config: &Config) -> Result<Vec<Version>, Box<dy
 pub fn get_url(pkg: &Package, config: &Config) -> String {
     let (platform, arch) = host();
     format!(
-        "{}/{}/{}/{}/v{}.tar.gz",
+        "{}/{}/{}/{}/v{}.tar.xz",
         config.dist_url, pkg.project, platform, arch, pkg.version.raw
     )
 }
