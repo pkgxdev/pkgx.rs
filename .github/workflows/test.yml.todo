@@ -22,7 +22,10 @@
 #       CARGO_INCREMENTAL: 0
 #       RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort -D warnings
 #       RUSTDOCFLAGS: -Cpanic=abort
-#     runs-on: ubuntu-latest
+#     strategy:
+#       matrix:
+#         os: [ubuntu-latest, macos-latest]
+#     runs-on: ${{ matrix.os }}
 #     steps:
 #       - uses: actions/checkout@v4
 #       - uses: actions-rs/toolchain@v1
@@ -45,7 +48,10 @@
 #           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
 #   coverage:
 #     name: Coverage
-#     runs-on: ubuntu-latest
+#     strategy:
+#       matrix:
+#         os: [ubuntu-latest, macos-latest]
+#     runs-on: ${{ matrix.os }}
 #     steps:
 #       - uses: actions/checkout@v4
 #       - uses: actions-rs/toolchain@v1
@@ -53,13 +59,9 @@
 #           profile: minimal
 #           toolchain: nightly
 #           override: true
-#       - name: Setup just
-#         uses: extractions/setup-just@v1
-#         env:
-#           GITHUB_TOKEN: ${{ github.token }}
 #       - name: Generate test result and coverage report
 #         run: |
 #           cargo install cargo-tarpaulin
-#           just coverage
+#           cargo tarpaulin --engine ptrace -o lcov --output-dir coverage --coveralls $COVERALLS_TOKEN
 #         env:
 #           COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
