@@ -958,6 +958,7 @@ dependencies = [
  "dirs-next",
  "futures",
  "indicatif",
+ "lazy_static",
  "libc",
  "libsemverator",
  "regex",

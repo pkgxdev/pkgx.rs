@@ -1,6 +1,11 @@
+use lazy_static::lazy_static;
 use libsemverator::range::{Constraint, Range as VersionReq};
 use libsemverator::semver::Semver as Version;
 use std::fmt;
+
+lazy_static! {
+    static ref PACKAGE_REGEX: Regex = Regex::new(r"^(.+?)([\^=~<>@].+)?$").unwrap();
+}
 
 #[derive(Debug, Clone)]
 pub struct Package {
@@ -30,8 +35,7 @@ use regex::Regex;
 impl PackageReq {
     pub fn parse(pkgspec: String) -> Result<Self, Box<dyn std::error::Error>> {
         let input = pkgspec.trim();
-        let re = Regex::new(r"^(.+?)([\^=~<>@].+)?$")?;
-        let captures = re
+        let captures = PACKAGE_REGEX
             .captures(input)
             .ok_or_else(|| format!("invalid pkgspec: {}", input))?;
 
