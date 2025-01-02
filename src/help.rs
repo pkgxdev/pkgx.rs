@@ -69,6 +69,8 @@ environmental influencers:
   CLICOLOR   # see https://bixense.com/clicolors
 "#;
 
+        // not bothering to wrap this in a lazy_static! block
+        // because it's only used once
         let re = Regex::new("(?m)#.*$").unwrap();
 
         re.replace_all(usage, |caps: &regex::Captures| {
