@@ -1,0 +1,65 @@
+# https://github.com/BamPeers/rust-ci-github-actions-workflow
+
+# TODO:
+# on:
+#   pull_request:
+#   push:
+#     branches:
+#       - main
+
+# name: Test with Code Coverage
+
+# permissions:
+#   contents: read
+#   checks: write
+#   pull-requests: write
+
+# jobs:
+#   test:
+#     name: Test
+#     env:
+#       PROJECT_NAME_UNDERSCORE: semverator
+#       CARGO_INCREMENTAL: 0
+#       RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort -D warnings
+#       RUSTDOCFLAGS: -Cpanic=abort
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions-rs/toolchain@v1
+#         with:
+#           profile: minimal
+#           toolchain: nightly
+#           override: true
+#       - name: Cache dependencies
+#         uses: actions/cache@v4
+#         env:
+#           cache-name: cache-dependencies
+#         with:
+#           path: |
+#             ~/.cargo/.crates.toml
+#             ~/.cargo/.crates2.json
+#             ~/.cargo/bin
+#             ~/.cargo/registry/index
+#             ~/.cargo/registry/cache
+#             target
+#           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+#   coverage:
+#     name: Coverage
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions-rs/toolchain@v1
+#         with:
+#           profile: minimal
+#           toolchain: nightly
+#           override: true
+#       - name: Setup just
+#         uses: extractions/setup-just@v1
+#         env:
+#           GITHUB_TOKEN: ${{ github.token }}
+#       - name: Generate test result and coverage report
+#         run: |
+#           cargo install cargo-tarpaulin
+#           just coverage
+#         env:
+#           COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}

@@ -1,0 +1,75 @@
+# https://github.com/BamPeers/rust-ci-github-actions-workflow
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.rs"
+      - "**/*.toml"
+      - "**/*.lock"
+      # if we ever want to markdownlint
+      # - "**/*.md"
+
+name: Check and Lint
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: check
+        env:
+          RUSTFLAGS: "-D warnings"
+
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - run: rustup component add rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: clippy
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-features
+        env:
+          RUSTFLAGS: "-D warnings"
+
+  # @mxcl hates this one, because he likes violating its rules without
+  # consequence or annotation.
+  # markdownlint:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: nosborn/github-action-markdown-cli@v3.2.0
+  #       with:
+  #         files: .
