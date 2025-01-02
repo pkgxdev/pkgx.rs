@@ -706,6 +706,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lazy_static"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
+
+[[package]]
 name = "libc"
 version = "0.2.169"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -724,11 +730,12 @@ dependencies = [
 
 [[package]]
 name = "libsemverator"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80867f7fde9a5dda9854c48217d277ac16a5ca5d2f452c1347c82701b3a598a0"
+checksum = "d1e127518fe9d6f7e20d2582bf3e60630e63b491e2ebf6abd41312bb21846f57"
 dependencies = [
  "anyhow",
+ "lazy_static",
  "regex",
 ]
 

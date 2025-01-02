@@ -28,3 +28,17 @@ the majority of the flamegraph does seem to be invovled with sqlite3. that's _go
 bounded by disk access. i'm not sure we can improve on this, since without data we're not a program.
 
 leaving the static linking in `Cargo.toml` for now, because this is Rust.
+
+## fixing libsemverator
+
+`samply` showed we (I) wasted a ton of time recompiling the same regex over and over. I've fixed that in `libsemverator`.
+use a `lazy_static!` to compile the regex once, people.
+
+```sh
+pkgx hyperfine -iw3 -- './target/release/pkgx +facebook.com/watchman'
+Benchmark 1: ./target/release/pkgx +facebook.com/watchman
+  Time (mean ± σ):       8.6 ms ±   1.8 ms    [User: 3.4 ms, System: 4.0 ms]
+  Range (min … max):     6.4 ms …  26.2 ms    169 runs
+```
+
+that's almost a 20% savings.

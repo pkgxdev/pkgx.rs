@@ -8,5 +8,10 @@ bench PKG:
 
 [group("benchmarks"), no-cd]
 graph *ARGS:
-  cargo flamegraph --flamecharto --root -- {{ARGS}}
+  cargo flamegraph --flamechart --root -- {{ARGS}}
   open flamegraph.svg
+
+[group("benchmarks"), no-cd]
+sample *ARGS:
+  cargo build -r
+  pkgx samply record ./target/release/pkgx {{ARGS}}
