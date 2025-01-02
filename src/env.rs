@@ -3,12 +3,14 @@ use std::collections::{HashMap, HashSet};
 use crate::types::Installation;
 
 pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
-    let mut vars: HashMap<String, OrderedSet<String>> = HashMap::new();
+    let mut vars: HashMap<&str, OrderedSet<String>> = HashMap::new();
 
-    let projects: HashSet<_> = installations.iter().map(|i| &i.pkg.project).collect();
+    let projects: HashSet<&str> = installations
+        .iter()
+        .map(|i| i.pkg.project.as_str())
+        .collect();
 
-    #[allow(clippy::unnecessary_to_owned)]
-    let has_cmake = projects.contains(&"cmake.org".to_string());
+    let has_cmake = projects.contains("cmake.org");
     let archaic = true;
 
     let mut rv: HashMap<String, Vec<String>> = HashMap::new();
@@ -38,7 +40,7 @@ pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
                 for suffix in suffixes {
                     let path = installation.path.join(suffix).to_string_lossy().to_string();
                     if !path.is_empty() {
-                        vars.entry(key.as_ref().to_string())
+                        vars.entry(key.as_ref())
                             .or_insert_with(OrderedSet::new)
                             .add(path);
                     }
@@ -48,7 +50,7 @@ pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
 
         if archaic {
             let lib_path = installation.path.join("lib").to_string_lossy().to_string();
-            vars.entry(EnvKey::LibraryPath.as_ref().to_string())
+            vars.entry(EnvKey::LibraryPath.as_ref())
                 .or_insert_with(OrderedSet::new)
                 .add(lib_path);
 
@@ -57,13 +59,13 @@ pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
                 .join("include")
                 .to_string_lossy()
                 .to_string();
-            vars.entry(EnvKey::CPATH.as_ref().to_string())
+            vars.entry(EnvKey::CPATH.as_ref())
                 .or_insert_with(OrderedSet::new)
                 .add(include_path);
         }
 
         if has_cmake {
-            vars.entry(EnvKey::CmakePrefixPath.as_ref().to_string())
+            vars.entry(EnvKey::CmakePrefixPath.as_ref())
                 .or_insert_with(OrderedSet::new)
                 .add(installation.path.to_string_lossy().to_string());
         }
@@ -71,14 +73,14 @@ pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
 
     if let Some(library_path) = vars.get(EnvKey::LibraryPath.as_ref()) {
         let paths = library_path.to_vec();
-        vars.entry(EnvKey::LdLibraryPath.as_ref().to_string())
+        vars.entry(EnvKey::LdLibraryPath.as_ref())
             .or_insert_with(OrderedSet::new)
             .items
             .extend(paths.clone());
 
         // We only need to set DYLD_FALLBACK_LIBRARY_PATH on macOS
         #[cfg(target_os = "macos")]
-        vars.entry(EnvKey::DyldFallbackLibraryPath.as_ref().to_string())
+        vars.entry(EnvKey::DyldFallbackLibraryPath.as_ref())
             .or_insert_with(OrderedSet::new)
             .items
             .extend(paths);

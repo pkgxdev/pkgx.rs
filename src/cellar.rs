@@ -120,10 +120,7 @@ pub async fn resolve(pkg: &PackageReq, config: &Config) -> Result<Installation, 
 }
 
 pub async fn has(pkg: &PackageReq, config: &Config) -> Option<Installation> {
-    match resolve(pkg, config).await {
-        Ok(inst) => Some(inst),
-        Err(_) => None, //FIXME only swallow errors for the correct error types
-    }
+    resolve(pkg, config).await.ok()
 }
 
 pub fn dst(pkg: &Package, config: &Config) -> PathBuf {

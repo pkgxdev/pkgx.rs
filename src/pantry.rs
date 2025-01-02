@@ -114,7 +114,6 @@ struct RawPantryEntry {
 impl RawPantryEntry {
     fn from_path(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         let content = fs::read_to_string(path)?;
-        let entry: RawPantryEntry = serde_yaml::from_str(&content)?;
-        Ok(entry)
+        Ok(serde_yaml::from_str(&content)?)
     }
 }

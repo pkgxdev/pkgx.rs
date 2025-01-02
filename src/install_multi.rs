@@ -39,7 +39,7 @@ pub async fn install_multi(
                 if state.counter == n {
                     let bar = ProgressBar::new(state.total_size);
                     bar.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
-                        .unwrap()
+                        .expect("failed to construct progress bar")
                         .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
                         .progress_chars("#>-"));
                     state.pb = Some(bar);
@@ -61,15 +61,7 @@ pub async fn install_multi(
 
     // Handle results
     for result in results {
-        match result {
-            Ok(installation) => {
-                installations.push(installation);
-            }
-            Err(err) => {
-                // Handle the error as needed
-                return Err(err);
-            }
-        }
+        installations.push(result?);
     }
 
     Ok(installations)

@@ -26,7 +26,7 @@ fn get_dist_url() -> String {
     if let Ok(env_url) = env::var("PKGX_DIST_URL") {
         return env_url;
     }
-    "https://dist.pkgx.dev".to_string()
+    env!("PKGX_DIST_URL").to_string()
 }
 
 fn get_pantry_dir() -> io::Result<PathBuf> {
@@ -50,9 +50,10 @@ fn get_pkgx_dir() -> io::Result<PathBuf> {
             return Ok(path);
         }
     }
-    Ok(match std::env::consts::OS {
-        "macos" => dirs_next::home_dir().unwrap().join("Library/pkgs"),
-        "linux" => dirs_next::home_dir().unwrap().join(".pkgx"),
-        _ => panic!("Unsupported platform"),
-    })
+    #[cfg(target_os = "macos")]
+    return Ok(dirs_next::home_dir().unwrap().join("Library/pkgx"));
+    #[cfg(target_os = "linux")]
+    return Ok(dirs_next::home_dir().unwrap().join(".pkgx"));
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    panic!("Unsupported platform")
 }

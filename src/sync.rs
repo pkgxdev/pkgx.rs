@@ -10,7 +10,7 @@ pub fn should(config: &Config) -> bool {
 }
 
 pub async fn replace(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    let url = "https://dist.pkgx.dev/pantry.tgz";
+    let url = env!("PKGX_PANTRY_TARBALL_URL");
     std::fs::create_dir_all(config.pantry_dir.clone())?;
     download_and_extract_pantry(url, &config.pantry_dir).await
 }

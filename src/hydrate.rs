@@ -73,8 +73,8 @@ fn condense(pkgs: &Vec<PackageReq>) -> Vec<PackageReq> {
     let mut out: Vec<PackageReq> = vec![];
     for pkg in pkgs {
         if let Some(existing) = out.iter_mut().find(|p| p.project == pkg.project) {
-            existing.constraint =
-                intersect_constraints(&existing.constraint, &pkg.constraint).unwrap();
+            existing.constraint = intersect_constraints(&existing.constraint, &pkg.constraint)
+                .expect("Failed to intersect constraints");
         } else {
             out.push(pkg.clone());
         }
@@ -84,6 +84,5 @@ fn condense(pkgs: &Vec<PackageReq>) -> Vec<PackageReq> {
 
 /// Intersects two version constraints.
 fn intersect_constraints(a: &VersionReq, b: &VersionReq) -> Result<VersionReq, Box<dyn Error>> {
-    let rv = a.intersect(b)?;
-    Ok(rv)
+    a.intersect(b).map_err(|e| e.into())
 }

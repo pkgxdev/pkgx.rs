@@ -46,16 +46,15 @@ pub async fn resolve(reqs: Vec<PackageReq>, config: &Config) -> Result<Resolutio
 
     // Process the results as they are completed
     while let Some(result) = futures.next().await {
-        match result {
-            Ok((Some((installation, pkg)), None)) => {
+        match result? {
+            (Some((installation, pkg)), None) => {
                 rv.installed.push(installation);
                 rv.pkgs.push(pkg);
             }
-            Ok((None, Some(pkg))) => {
+            (None, Some(pkg)) => {
                 rv.pkgs.push(pkg.clone());
                 rv.pending.push(pkg);
             }
-            Err(e) => return Err(e),
             _ => unreachable!(), // This should not happen
         }
     }
