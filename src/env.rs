@@ -4,7 +4,6 @@ use crate::types::Installation;
 
 pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
     let mut vars: HashMap<String, OrderedSet<String>> = HashMap::new();
-    let is_mac = cfg!(target_os = "macos");
 
     let projects: HashSet<_> = installations.iter().map(|i| &i.pkg.project).collect();
 
@@ -77,12 +76,12 @@ pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
             .items
             .extend(paths.clone());
 
-        if is_mac {
-            vars.entry(EnvKey::DyldFallbackLibraryPath.as_ref().to_string())
-                .or_insert_with(OrderedSet::new)
-                .items
-                .extend(paths);
-        }
+        // We only need to set DYLD_FALLBACK_LIBRARY_PATH on macOS
+        #[cfg(target_os = "macos")]
+        vars.entry(EnvKey::DyldFallbackLibraryPath.as_ref().to_string())
+            .or_insert_with(OrderedSet::new)
+            .items
+            .extend(paths);
     }
 
     for (key, set) in &vars {
