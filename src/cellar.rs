@@ -66,7 +66,7 @@ async fn vacant(path: &PathBuf) -> Result<bool, Box<dyn std::error::Error>> {
 
     // Iterate over directory contents
     let mut entries = fs::read_dir(path).await?;
-    while let Some(_) = entries.next_entry().await? {
+    if entries.next_entry().await?.is_some() {
         return Ok(false); // Found at least one file/directory
     }
 
@@ -121,7 +121,7 @@ pub async fn resolve(pkg: &PackageReq, config: &Config) -> Result<Installation, 
 
 pub async fn has(pkg: &PackageReq, config: &Config) -> Option<Installation> {
     match resolve(pkg, config).await {
-        Ok(foo) => Some(foo),
+        Ok(inst) => Some(inst),
         Err(_) => None, //FIXME only swallow errors for the correct error types
     }
 }

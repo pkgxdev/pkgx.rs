@@ -31,7 +31,7 @@ pub async fn install_multi(
     let mut promises = Vec::new();
     for pkg in pending {
         let shared_state = Arc::clone(&shared_state);
-        let promise = install::install(&pkg, &config, move |event| match event {
+        let promise = install::install(pkg, config, move |event| match event {
             install::InstallEvent::DownloadSize(size) => {
                 let mut state = shared_state.lock().unwrap();
                 state.total_size += size;
