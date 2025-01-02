@@ -1,9 +1,9 @@
 use crate::config::Config;
 use async_compression::tokio::bufread::GzipDecoder;
 use futures::TryStreamExt;
-use tokio_util::compat::FuturesAsyncReadCompatExt;
 use std::path::PathBuf;
 use tokio_tar::Archive;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 pub fn should(config: &Config) -> bool {
     !config.pantry_dir.join("projects").exists()

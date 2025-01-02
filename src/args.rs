@@ -8,12 +8,21 @@ pub struct Flags {
     pub verbosity: i8,
 }
 
-pub fn parse() -> (Vec<String>, Vec<String>, Mode, Flags) {
+pub struct Args {
+    pub plus: Vec<String>,
+    pub args: Vec<String>,
+    pub find_program: bool,
+    pub mode: Mode,
+    pub flags: Flags,
+}
+
+pub fn parse() -> Args {
     let mut mode = Mode::X;
     let mut plus = Vec::new();
     let mut args = Vec::new();
-    let mut collecting_args = false;
     let mut verbosity: i8 = 0;
+    let mut find_program = false;
+    let mut collecting_args = false;
 
     for arg in std::env::args().skip(1) {
         if collecting_args {
@@ -21,6 +30,7 @@ pub fn parse() -> (Vec<String>, Vec<String>, Mode, Flags) {
         } else if arg.starts_with('+') {
             plus.push(arg.trim_start_matches('+').to_string());
         } else if arg == "--" {
+            find_program = false;
             collecting_args = true;
         } else if arg.starts_with("--") {
             match arg.as_str() {
@@ -39,14 +49,21 @@ pub fn parse() -> (Vec<String>, Vec<String>, Mode, Flags) {
                     'u' => (),
                     'h' => mode = Mode::Help,
                     'v' => mode = Mode::Version,
-                    _ => panic!("unknown argument -{}", c),
+                    _ => panic!("unknown argument: -{}", c),
                 }
             }
         } else {
+            find_program = !arg.contains('/');
             collecting_args = true;
             args.push(arg);
         }
     }
 
-    (plus, args, mode, Flags { verbosity })
+    Args {
+        plus,
+        args,
+        find_program,
+        mode,
+        flags: Flags { verbosity },
+    }
 }
