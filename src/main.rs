@@ -19,11 +19,16 @@ use config::Config;
 use execve::execve;
 use hydrate::hydrate;
 use resolve::resolve;
-use utils::find_program;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let (mut plus, args, mode, flags) = args::parse();
+    let args::Args {
+        mut plus,
+        mut args,
+        mode,
+        flags,
+        find_program,
+    } = args::parse();
 
     match mode {
         args::Mode::Help => {
@@ -46,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         rusqlite::Connection::open(config.pantry_dir.parent().unwrap().join("pantry.db"))?
     };
 
-    if !args.is_empty() && !args[0].contains('/') {
+    if find_program {
         plus.push(args[0].clone());
     }
 
@@ -71,10 +76,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("{}={}", key, values.join(":"));
         }
         Ok(())
-    } else if let Some(cmd) = find_program(&args[0], &env["PATH"]) {
-        let env = env::mix(env);
-        execve(cmd, args[1..].to_vec(), env)
     } else {
-        Err(format!("cmd not found: {}", args[0]).into())
+        let cmd = if find_program {
+            utils::find_program(&args.remove(0), &env["PATH"])?
+        } else if args[0].contains('/') {
+            // user specified a path to program which we should use
+            args.remove(0)
+        } else {
+            // user wants a system tool, eg. pkgx +wget -- git clone
+            // NOTE we still check the injected PATH since they may have added the tool anyway
+            // it’s just this route allows the user to get a non-error for delegating through to the system
+            let mut paths = vec![];
+            if let Some(pkgpaths) = env.get("PATH") {
+                paths.append(&mut pkgpaths.clone());
+            }
+            if let Ok(syspaths) = std::env::var("PATH") {
+                paths.extend(
+                    syspaths
+                        .split(':')
+                        .map(|x| x.to_string())
+                        .collect::<Vec<String>>(),
+                );
+            }
+            utils::find_program(&args.remove(0), &paths)?
+        };
+        let env = env::mix(env);
+        execve(cmd, args, env)
     }
 }
