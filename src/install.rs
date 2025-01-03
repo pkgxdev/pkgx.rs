@@ -55,7 +55,7 @@ where
         .into_async_read();
     let stream = stream.compat();
 
-    // Step 2: Create a Gzip decoder
+    // Step 2: Create a XZ decoder
     let decoder = XzDecoder::new(stream);
 
     // Step 3: Extract the tar archive

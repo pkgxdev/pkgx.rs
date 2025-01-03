@@ -118,10 +118,8 @@ pub fn convert(
         let mut pkg = PackageReq::parse(arg)?;
         if let Ok(project) = which(&pkg.project, conn) {
             pkg.project = project;
-            pkgs.push(pkg);
-        } else {
-            pkgs.push(pkg);
         }
+        pkgs.push(pkg);
     }
 
     Ok(pkgs)

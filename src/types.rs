@@ -155,27 +155,35 @@ pub struct Installation {
     pub pkg: Package,
 }
 
+// These are only used per build at present
+#[allow(dead_code)]
 pub enum Host {
     Darwin,
     Linux,
 }
 
+// These are only used per build at present
+#[allow(dead_code)]
 pub enum Arch {
     Arm64,
     X86_64,
 }
 
 pub fn host() -> (Host, Arch) {
-    let host = match std::env::consts::OS {
-        "macos" => Host::Darwin,
-        "linux" => Host::Linux,
-        _ => panic!("Unsupported platform"),
-    };
-    let arch = match std::env::consts::ARCH {
-        "aarch64" => Arch::Arm64,
-        "x86_64" => Arch::X86_64,
-        _ => panic!("Unsupported architecture"),
-    };
+    #[cfg(target_os = "macos")]
+    let host = Host::Darwin;
+    #[cfg(target_os = "linux")]
+    let host = Host::Linux;
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    panic!("Unsupported platform");
+
+    #[cfg(target_arch = "aarch64")]
+    let arch = Arch::Arm64;
+    #[cfg(target_arch = "x86_64")]
+    let arch = Arch::X86_64;
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    panic!("Unsupported architecture");
+
     (host, arch)
 }
 
