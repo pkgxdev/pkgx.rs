@@ -51,7 +51,7 @@ fn get_pkgx_dir() -> io::Result<PathBuf> {
         }
     }
     #[cfg(target_os = "macos")]
-    return Ok(dirs_next::home_dir().unwrap().join("Library/pkgx"));
+    return Ok(dirs_next::home_dir().unwrap().join(".pkgx"));
     #[cfg(target_os = "linux")]
     return Ok(dirs_next::home_dir().unwrap().join(".pkgx"));
     #[cfg(not(any(target_os = "macos", target_os = "linux")))]
