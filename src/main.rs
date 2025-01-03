@@ -24,7 +24,7 @@ use types::PackageReq;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args::Args {
-        mut plus,
+        plus,
         mut args,
         mode,
         flags,
@@ -54,9 +54,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut pkgs = vec![];
     for arg in plus {
-      let arg = PackageReq::parse(&arg)?;
-      let pkg = pantry_db::resolve(arg, &conn)?;
-      pkgs.push(pkg);
+        let arg = PackageReq::parse(&arg)?;
+        let pkg = pantry_db::resolve(arg, &conn)?;
+        pkgs.push(pkg);
     }
 
     if find_program {
@@ -79,11 +79,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         installations.extend(installed);
     }
 
-    let env = env::map(installations);
+    let env = env::map(&installations);
 
     if args.is_empty() {
-        for (key, values) in env {
-            println!("{}={}", key, values.join(":"));
+        let env = env.iter().map(|(k, v)| (k.clone(), v.join(":"))).collect();
+        let env = env::mix_runtime(&env, &installations, &conn)?;
+        for (key, value) in env {
+            println!("{}=\"{}${{{}:+:${}}}\"", key, value, key, key);
         }
         Ok(())
     } else {
@@ -111,6 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             utils::find_program(&args.remove(0), &paths, &config).await?
         };
         let env = env::mix(env);
+        let env = env::mix_runtime(&env, &installations, &conn)?;
         execve(cmd, args, env)
     }
 }
