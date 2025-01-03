@@ -19,6 +19,7 @@ use config::Config;
 use execve::execve;
 use hydrate::hydrate;
 use resolve::resolve;
+use types::PackageReq;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -51,11 +52,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         rusqlite::Connection::open(config.pantry_dir.parent().unwrap().join("pantry.db"))?
     };
 
-    if find_program {
-        plus.push(args[0].clone());
+    let mut pkgs = vec![];
+    for arg in plus {
+      let arg = PackageReq::parse(&arg)?;
+      let pkg = pantry_db::resolve(arg, &conn)?;
+      pkgs.push(pkg);
     }
 
-    let pkgs = pantry_db::convert(plus, &conn)?;
+    if find_program {
+        let mut pkg = PackageReq::parse(&args[0])?;
+        args[0] = pkg.project.clone(); // converts eg. `node@20` to `node`
+        pkg = pantry_db::resolve(pkg, &conn)?;
+        pkgs.push(pkg);
+    }
 
     let graph = hydrate(&pkgs, |project| {
         pantry_db::deps_for_project(&project, &conn)

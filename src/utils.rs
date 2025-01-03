@@ -1,4 +1,4 @@
-use std::{os::unix::fs::PermissionsExt, path::Path};
+use std::{error::Error, os::unix::fs::PermissionsExt, path::Path};
 
 use crate::config::Config;
 
@@ -6,7 +6,7 @@ pub async fn find_program(
     arg: &str,
     paths: &Vec<String>,
     config: &Config,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String, Box<dyn Error>> {
     if let Ok(cmd) = find_program_internal(arg, paths) {
         Ok(cmd)
     } else {
@@ -17,10 +17,7 @@ pub async fn find_program(
     }
 }
 
-fn find_program_internal(
-    arg: &str,
-    paths: &Vec<String>,
-) -> Result<String, Box<dyn std::error::Error>> {
+fn find_program_internal(arg: &str, paths: &Vec<String>) -> Result<String, Box<dyn Error>> {
     if arg.starts_with("/") {
         return Ok(arg.to_string());
     } else if arg.contains("/") {

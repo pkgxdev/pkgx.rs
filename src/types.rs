@@ -1,6 +1,7 @@
 use lazy_static::lazy_static;
 use libsemverator::range::{Constraint, Range as VersionReq};
 use libsemverator::semver::Semver as Version;
+use std::error::Error;
 use std::fmt;
 
 lazy_static! {
@@ -33,7 +34,7 @@ pub struct PackageReq {
 use regex::Regex;
 
 impl PackageReq {
-    pub fn parse(pkgspec: String) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn parse(pkgspec: &String) -> Result<Self, Box<dyn Error>> {
         let input = pkgspec.trim();
         let captures = PACKAGE_REGEX
             .captures(input)

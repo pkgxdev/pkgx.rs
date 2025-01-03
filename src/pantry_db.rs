@@ -1,10 +1,10 @@
-use std::fs;
+use std::{error::Error, fs};
 
 use rusqlite::{params, Connection};
 
 use crate::{config::Config, pantry, types::PackageReq};
 
-pub fn cache(config: &Config) -> Result<Connection, Box<dyn std::error::Error>> {
+pub fn cache(config: &Config) -> Result<Connection, Box<dyn Error>> {
     let path = config.pantry_dir.parent().unwrap().join("pantry.db");
 
     // Remove the existing database file
@@ -87,17 +87,18 @@ pub fn cache(config: &Config) -> Result<Connection, Box<dyn std::error::Error>> 
 pub fn deps_for_project(
     project: &String,
     conn: &Connection,
-) -> Result<Vec<PackageReq>, Box<dyn std::error::Error>> {
+) -> Result<Vec<PackageReq>, Box<dyn Error>> {
     let mut stmt = conn.prepare("SELECT pkgspec FROM dependencies WHERE project = ?1")?;
+
     let rv = stmt.query_map(params![project], |row| {
         let pkgspec = row.get(0)?;
-        let pkgrq = PackageReq::parse(pkgspec).unwrap(); //FIXME error handling
+        let pkgrq = PackageReq::parse(&pkgspec).unwrap(); //FIXME unwrap()
         Ok(pkgrq)
     })?;
     Ok(rv.collect::<Result<Vec<_>, _>>()?)
 }
 
-pub fn which(cmd: &String, conn: &Connection) -> Result<String, Box<dyn std::error::Error>> {
+pub fn which(cmd: &String, conn: &Connection) -> Result<String, Box<dyn Error>> {
     let mut stmt = conn.prepare("SELECT project FROM provides WHERE program = ?1")?;
     let mut rows = stmt.query(params![cmd])?;
     if let Some(row) = rows.next()? {
@@ -107,20 +108,10 @@ pub fn which(cmd: &String, conn: &Connection) -> Result<String, Box<dyn std::err
     }
 }
 
-// converts programs to projects and leaves projects
-pub fn convert(
-    args: Vec<String>,
-    conn: &Connection,
-) -> Result<Vec<PackageReq>, Box<dyn std::error::Error>> {
-    let mut pkgs = vec![];
-
-    for arg in args {
-        let mut pkg = PackageReq::parse(arg)?;
-        if let Ok(project) = which(&pkg.project, conn) {
-            pkg.project = project;
-        }
-        pkgs.push(pkg);
+// given pkgspec of program@version or project@version return PackageReq
+pub fn resolve(mut pkg: PackageReq, conn: &Connection) -> Result<PackageReq, Box<dyn Error>> {
+    if let Ok(project) = which(&pkg.project, conn) {
+        pkg.project = project;
     }
-
-    Ok(pkgs)
+    Ok(pkg)
 }
