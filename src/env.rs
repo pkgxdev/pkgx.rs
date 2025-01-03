@@ -36,9 +36,6 @@ pub fn map(installations: &Vec<Installation>) -> HashMap<String, Vec<String>> {
         }
     }
 
-    #[cfg(not(target_os = "macos"))]
-    vars.remove(&EnvKey::DyldFallbackLibraryPath);
-
     // don’t break `man`
     if vars.contains_key(&EnvKey::Manpath) {
         vars.get_mut(&EnvKey::Manpath)
@@ -53,7 +50,6 @@ pub fn map(installations: &Vec<Installation>) -> HashMap<String, Vec<String>> {
     }
 
     let mut rv: HashMap<String, Vec<String>> = HashMap::new();
-
     for (key, set) in vars {
         let set = set
             .items
@@ -62,7 +58,6 @@ pub fn map(installations: &Vec<Installation>) -> HashMap<String, Vec<String>> {
             .collect();
         rv.insert(key.as_ref().to_string(), set);
     }
-
     rv
 }
 
@@ -81,6 +76,7 @@ enum EnvKey {
     Cpath,
     XdgDataDirs,
     CmakePrefixPath,
+    #[cfg(target_os = "macos")]
     DyldFallbackLibraryPath,
     SslCertFile,
     Ldflags,
@@ -88,21 +84,20 @@ enum EnvKey {
     AclocalPath,
 }
 
-//FIXME surely there's a stdlib type that does this?
-pub struct OrderedSet<T: Eq + std::hash::Hash + Clone> {
+struct OrderedSet<T: Eq + std::hash::Hash + Clone> {
     items: Vec<T>,
     set: HashSet<T>,
 }
 
 impl<T: Eq + std::hash::Hash + Clone> OrderedSet<T> {
-    pub fn new() -> Self {
+    fn new() -> Self {
         OrderedSet {
             items: Vec::new(),
             set: HashSet::new(),
         }
     }
 
-    pub fn add(&mut self, item: T) {
+    fn add(&mut self, item: T) {
         if self.set.insert(item.clone()) {
             self.items.push(item);
         }
@@ -116,9 +111,9 @@ fn suffixes(key: &EnvKey) -> Option<Vec<&'static str>> {
         EnvKey::PkgConfigPath => Some(vec!["share/pkgconfig", "lib/pkgconfig"]),
         EnvKey::XdgDataDirs => Some(vec!["share"]),
         EnvKey::AclocalPath => Some(vec!["share/aclocal"]),
-        EnvKey::LibraryPath | EnvKey::LdLibraryPath | EnvKey::DyldFallbackLibraryPath => {
-            Some(vec!["lib", "lib64"])
-        }
+        EnvKey::LibraryPath | EnvKey::LdLibraryPath => Some(vec!["lib", "lib64"]),
+        #[cfg(target_os = "macos")]
+        EnvKey::DyldFallbackLibraryPath => Some(vec!["lib", "lib64"]),
         EnvKey::Cpath => Some(vec!["include"]),
         EnvKey::CmakePrefixPath | EnvKey::SslCertFile | EnvKey::Ldflags | EnvKey::PkgxDir => None,
     }
@@ -167,11 +162,12 @@ pub fn mix_runtime(
 }
 
 pub fn expand_moustaches(input: &str, pkg: &Installation, deps: &Vec<Installation>) -> String {
-    let prefix = pkg.path.to_string_lossy();
     let mut output = input.to_string();
-    if output.starts_with("${{prefix}}") {
-        output.replace_range(..11, &prefix);
+
+    if output.starts_with("${{") {
+        output.replace_range(..1, "");
     }
+
     output = output.replace("{{prefix}}", &pkg.path.to_string_lossy());
     output = output.replace(
         "{{version}}",
