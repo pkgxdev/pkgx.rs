@@ -1,41 +1,27 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+    path::PathBuf,
+    str::FromStr,
+};
 
 use crate::types::Installation;
 
-pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
-    let mut vars: HashMap<&str, OrderedSet<String>> = HashMap::new();
+pub fn map(installations: &Vec<Installation>) -> HashMap<String, Vec<String>> {
+    let mut vars: HashMap<EnvKey, OrderedSet<PathBuf>> = HashMap::new();
 
     let projects: HashSet<&str> = installations
         .iter()
         .map(|i| i.pkg.project.as_str())
         .collect();
 
-    let has_cmake = projects.contains("cmake.org");
-    let archaic = true;
-
-    let mut rv: HashMap<String, Vec<String>> = HashMap::new();
-
     for installation in installations {
-        for key in &[
-            EnvKey::Path,
-            EnvKey::Manpath,
-            EnvKey::PkgConfigPath,
-            EnvKey::LibraryPath,
-            EnvKey::LdLibraryPath,
-            EnvKey::Cpath,
-            EnvKey::XdgDataDirs,
-            EnvKey::CmakePrefixPath,
-            EnvKey::DyldFallbackLibraryPath,
-            EnvKey::SslCertFile,
-            EnvKey::Ldflags,
-            EnvKey::PkgxDir,
-            EnvKey::AclocalPath,
-        ] {
-            if let Some(suffixes) = suffixes(key) {
+        for key in EnvKey::iter() {
+            if let Some(suffixes) = suffixes(&key) {
                 for suffix in suffixes {
-                    let path = installation.path.join(suffix).to_string_lossy().to_string();
-                    if !path.is_empty() {
-                        vars.entry(key.as_ref())
+                    let path = installation.path.join(suffix);
+                    if path.is_dir() {
+                        vars.entry(key.clone())
                             .or_insert_with(OrderedSet::new)
                             .add(path);
                     }
@@ -43,56 +29,48 @@ pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
             }
         }
 
-        if archaic {
-            let lib_path = installation.path.join("lib").to_string_lossy().to_string();
-            vars.entry(EnvKey::LibraryPath.as_ref())
+        if projects.contains("cmake.org") {
+            vars.entry(EnvKey::CmakePrefixPath)
                 .or_insert_with(OrderedSet::new)
-                .add(lib_path);
-
-            let include_path = installation
-                .path
-                .join("include")
-                .to_string_lossy()
-                .to_string();
-            vars.entry(EnvKey::Cpath.as_ref())
-                .or_insert_with(OrderedSet::new)
-                .add(include_path);
-        }
-
-        if has_cmake {
-            vars.entry(EnvKey::CmakePrefixPath.as_ref())
-                .or_insert_with(OrderedSet::new)
-                .add(installation.path.to_string_lossy().to_string());
+                .add(installation.path.clone());
         }
     }
 
-    if let Some(library_path) = vars.get(EnvKey::LibraryPath.as_ref()) {
-        let paths = library_path.to_vec();
-        vars.entry(EnvKey::LdLibraryPath.as_ref())
-            .or_insert_with(OrderedSet::new)
-            .items
-            .extend(paths.clone());
+    #[cfg(not(target_os = "macos"))]
+    vars.remove(&EnvKey::DyldFallbackLibraryPath);
 
-        // We only need to set DYLD_FALLBACK_LIBRARY_PATH on macOS
-        #[cfg(target_os = "macos")]
-        vars.entry(EnvKey::DyldFallbackLibraryPath.as_ref())
-            .or_insert_with(OrderedSet::new)
-            .items
-            .extend(paths);
+    // don’t break `man`
+    if vars.contains_key(&EnvKey::Manpath) {
+        vars.get_mut(&EnvKey::Manpath)
+            .unwrap()
+            .add(PathBuf::from_str("/usr/share/man").unwrap());
+    }
+    // https://github.com/pkgxdev/libpkgx/issues/70
+    if vars.contains_key(&EnvKey::XdgDataDirs) {
+        let set = vars.get_mut(&EnvKey::XdgDataDirs).unwrap();
+        set.add(PathBuf::from_str("/usr/local/share").unwrap());
+        set.add(PathBuf::from_str("/usr/share").unwrap());
     }
 
-    for (key, set) in &vars {
-        if !set.is_empty() {
-            rv.insert(key.to_string(), set.to_vec());
-        }
+    let mut rv: HashMap<String, Vec<String>> = HashMap::new();
+
+    for (key, set) in vars {
+        let set = set
+            .items
+            .iter()
+            .map(|p| p.to_string_lossy().to_string())
+            .collect();
+        rv.insert(key.as_ref().to_string(), set);
     }
 
     rv
 }
 
-use strum_macros::{AsRefStr, EnumString};
+use rusqlite::Connection;
+use strum::IntoEnumIterator;
+use strum_macros::{AsRefStr, EnumIter, EnumString};
 
-#[derive(Debug, EnumString, AsRefStr, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, EnumString, AsRefStr, PartialEq, Eq, Hash, Clone, EnumIter)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 enum EnvKey {
     Path,
@@ -110,6 +88,7 @@ enum EnvKey {
     AclocalPath,
 }
 
+//FIXME surely there's a stdlib type that does this?
 pub struct OrderedSet<T: Eq + std::hash::Hash + Clone> {
     items: Vec<T>,
     set: HashSet<T>,
@@ -128,37 +107,25 @@ impl<T: Eq + std::hash::Hash + Clone> OrderedSet<T> {
             self.items.push(item);
         }
     }
-
-    pub fn to_vec(&self) -> Vec<T> {
-        self.items.clone()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.items.is_empty()
-    }
 }
+
 fn suffixes(key: &EnvKey) -> Option<Vec<&'static str>> {
     match key {
         EnvKey::Path => Some(vec!["bin", "sbin"]),
         EnvKey::Manpath => Some(vec!["man", "share/man"]),
         EnvKey::PkgConfigPath => Some(vec!["share/pkgconfig", "lib/pkgconfig"]),
         EnvKey::XdgDataDirs => Some(vec!["share"]),
-        EnvKey::LibraryPath
-        | EnvKey::LdLibraryPath
-        | EnvKey::DyldFallbackLibraryPath
-        | EnvKey::Cpath
-        | EnvKey::CmakePrefixPath
-        | EnvKey::SslCertFile
-        | EnvKey::Ldflags
-        | EnvKey::PkgxDir
-        | EnvKey::AclocalPath => None,
+        EnvKey::AclocalPath => Some(vec!["share/aclocal"]),
+        EnvKey::LibraryPath | EnvKey::LdLibraryPath | EnvKey::DyldFallbackLibraryPath => {
+            Some(vec!["lib", "lib64"])
+        }
+        EnvKey::Cpath => Some(vec!["include"]),
+        EnvKey::CmakePrefixPath | EnvKey::SslCertFile | EnvKey::Ldflags | EnvKey::PkgxDir => None,
     }
 }
 
 pub fn mix(input: HashMap<String, Vec<String>>) -> HashMap<String, String> {
     let mut rv = HashMap::new();
-
-    //TODO handle empty values etc.
 
     for (key, mut value) in std::env::vars() {
         if let Some(injected_values) = input.get(&key) {
@@ -168,4 +135,83 @@ pub fn mix(input: HashMap<String, Vec<String>>) -> HashMap<String, String> {
     }
 
     rv
+}
+
+pub fn mix_runtime(
+    input: &HashMap<String, String>,
+    installations: &Vec<Installation>,
+    conn: &Connection,
+) -> Result<HashMap<String, String>, Box<dyn Error>> {
+    let mut output = input.clone();
+
+    for installation in installations.clone() {
+        let runtime_env =
+            crate::pantry_db::runtime_env_for_project(&installation.pkg.project, conn)?;
+        for (key, runtime_value) in runtime_env {
+            let runtime_value = expand_moustaches(&runtime_value, &installation, installations);
+            let new_value = match output.get(&key) {
+                Some(curr_value) => runtime_value.replace(&format!("${}", key), curr_value),
+                None => {
+                    //TODO need to remove any $FOO, aware of `:` delimiters
+                    runtime_value
+                        .replace(&format!(":${}", key), "")
+                        .replace(&format!("${}:", key), "")
+                        .replace(&format!("${}", key), "")
+                }
+            };
+            output.insert(key, new_value);
+        }
+    }
+
+    Ok(output)
+}
+
+pub fn expand_moustaches(input: &str, pkg: &Installation, deps: &Vec<Installation>) -> String {
+    let prefix = pkg.path.to_string_lossy();
+    let mut output = input.to_string();
+    if output.starts_with("${{prefix}}") {
+        output.replace_range(..11, &prefix);
+    }
+    output = output.replace("{{prefix}}", &pkg.path.to_string_lossy());
+    output = output.replace(
+        "{{version}}",
+        &crate::types::semverator_version_to_string(&pkg.pkg.version),
+    );
+    output = output.replace("{{version.major}}", &format!("{}", pkg.pkg.version.major));
+    output = output.replace("{{version.minor}}", &format!("{}", pkg.pkg.version.minor));
+    output = output.replace("{{version.patch}}", &format!("{}", pkg.pkg.version.patch));
+    output = output.replace(
+        "{{version.marketing}}",
+        &format!("{}.{}", pkg.pkg.version.major, pkg.pkg.version.minor),
+    );
+
+    for dep in deps {
+        let prefix = format!("deps.{}", dep.pkg.project);
+        output = output.replace(
+            &format!("{{{{{}.prefix}}}}", prefix),
+            &dep.path.to_string_lossy(),
+        );
+        output = output.replace(
+            &format!("{{{{{}.version}}}}", prefix),
+            &crate::types::semverator_version_to_string(&dep.pkg.version),
+        );
+        output = output.replace(
+            &format!("{{{{{}.version.major}}}}", prefix),
+            &format!("{}", dep.pkg.version.major),
+        );
+        output = output.replace(
+            &format!("{{{{{}.version.minor}}}}", prefix),
+            &format!("{}", dep.pkg.version.minor),
+        );
+        output = output.replace(
+            &format!("{{{{{}.version.patch}}}}", prefix),
+            &format!("{}", dep.pkg.version.patch),
+        );
+        output = output.replace(
+            &format!("{{{{{}.version.marketing}}}}", prefix),
+            &format!("{}.{}", dep.pkg.version.major, dep.pkg.version.minor),
+        );
+    }
+
+    output
 }

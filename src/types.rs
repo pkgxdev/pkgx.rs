@@ -34,7 +34,7 @@ pub struct PackageReq {
 use regex::Regex;
 
 impl PackageReq {
-    pub fn parse(pkgspec: &String) -> Result<Self, Box<dyn Error>> {
+    pub fn parse(pkgspec: &str) -> Result<Self, Box<dyn Error>> {
         let input = pkgspec.trim();
         let captures = PACKAGE_REGEX
             .captures(input)
@@ -55,7 +55,7 @@ impl PackageReq {
     }
 }
 
-fn semverator_version_to_string(version: &Version) -> String {
+pub fn semverator_version_to_string(version: &Version) -> String {
     version
         .components
         .iter()

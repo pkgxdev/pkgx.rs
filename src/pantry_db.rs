@@ -1,4 +1,4 @@
-use std::{error::Error, fs};
+use std::{collections::HashMap, error::Error, fs};
 
 use rusqlite::{params, Connection};
 
@@ -91,7 +91,7 @@ pub fn deps_for_project(
     let mut stmt = conn.prepare("SELECT pkgspec FROM dependencies WHERE project = ?1")?;
 
     let rv = stmt.query_map(params![project], |row| {
-        let pkgspec = row.get(0)?;
+        let pkgspec: String = row.get(0)?;
         let pkgrq = PackageReq::parse(&pkgspec).unwrap(); //FIXME unwrap()
         Ok(pkgrq)
     })?;
@@ -106,6 +106,22 @@ pub fn which(cmd: &String, conn: &Connection) -> Result<String, Box<dyn Error>> 
     } else {
         Err("No project found for the given command".into())
     }
+}
+
+pub fn runtime_env_for_project(
+    project: &String,
+    conn: &Connection,
+) -> Result<HashMap<String, String>, Box<dyn Error>> {
+    let sql = "SELECT envline FROM runtime_env WHERE project = ?1";
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query(params![project])?;
+    let mut env = HashMap::new();
+    while let Some(row) = rows.next()? {
+        let envline: String = row.get(0)?;
+        let (key, value) = envline.split_once('=').unwrap();
+        env.insert(key.to_string(), value.to_string());
+    }
+    Ok(env)
 }
 
 // given pkgspec of program@version or project@version return PackageReq
