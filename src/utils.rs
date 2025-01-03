@@ -2,18 +2,25 @@ use std::{os::unix::fs::PermissionsExt, path::Path};
 
 use crate::config::Config;
 
-pub async fn find_program(arg: &str, paths: &Vec<String>, config: &Config) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn find_program(
+    arg: &str,
+    paths: &Vec<String>,
+    config: &Config,
+) -> Result<String, Box<dyn std::error::Error>> {
     if let Ok(cmd) = find_program_internal(arg, paths) {
         Ok(cmd)
     } else {
         // possibly this program is newer than the last sync
         //TODO this is pretty slow
-        crate::sync::replace(&config).await?;
+        crate::sync::replace(config).await?;
         find_program_internal(arg, paths)
     }
 }
 
-fn find_program_internal(arg: &str, paths: &Vec<String>) -> Result<String, Box<dyn std::error::Error>> {
+fn find_program_internal(
+    arg: &str,
+    paths: &Vec<String>,
+) -> Result<String, Box<dyn std::error::Error>> {
     if arg.starts_with("/") {
         return Ok(arg.to_string());
     } else if arg.contains("/") {

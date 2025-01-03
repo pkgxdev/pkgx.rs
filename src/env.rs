@@ -14,25 +14,20 @@ pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
     let archaic = true;
 
     let mut rv: HashMap<String, Vec<String>> = HashMap::new();
-    let mut seen = HashSet::new();
 
     for installation in installations {
-        if !seen.insert(installation.pkg.project.clone()) {
-            eprintln!("pkgx: env is being duped: {}", installation.pkg.project);
-        }
-
         for key in &[
-            EnvKey::PATH,
-            EnvKey::MANPATH,
+            EnvKey::Path,
+            EnvKey::Manpath,
             EnvKey::PkgConfigPath,
             EnvKey::LibraryPath,
             EnvKey::LdLibraryPath,
-            EnvKey::CPATH,
+            EnvKey::Cpath,
             EnvKey::XdgDataDirs,
             EnvKey::CmakePrefixPath,
             EnvKey::DyldFallbackLibraryPath,
             EnvKey::SslCertFile,
-            EnvKey::LDFLAGS,
+            EnvKey::Ldflags,
             EnvKey::PkgxDir,
             EnvKey::AclocalPath,
         ] {
@@ -59,7 +54,7 @@ pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
                 .join("include")
                 .to_string_lossy()
                 .to_string();
-            vars.entry(EnvKey::CPATH.as_ref())
+            vars.entry(EnvKey::Cpath.as_ref())
                 .or_insert_with(OrderedSet::new)
                 .add(include_path);
         }
@@ -98,23 +93,19 @@ pub fn map(installations: Vec<Installation>) -> HashMap<String, Vec<String>> {
 use strum_macros::{AsRefStr, EnumString};
 
 #[derive(Debug, EnumString, AsRefStr, PartialEq, Eq, Hash, Clone)]
-#[strum(serialize_all = "SCREAMING_SNAKE_CASE")] // Optional: enforce case style
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 enum EnvKey {
-    #[allow(clippy::upper_case_acronyms)]
-    PATH,
-    #[allow(clippy::upper_case_acronyms)]
-    MANPATH,
+    Path,
+    Manpath,
     PkgConfigPath,
     LibraryPath,
     LdLibraryPath,
-    #[allow(clippy::upper_case_acronyms)]
-    CPATH,
+    Cpath,
     XdgDataDirs,
     CmakePrefixPath,
     DyldFallbackLibraryPath,
     SslCertFile,
-    #[allow(clippy::upper_case_acronyms)]
-    LDFLAGS,
+    Ldflags,
     PkgxDir,
     AclocalPath,
 }
@@ -148,17 +139,17 @@ impl<T: Eq + std::hash::Hash + Clone> OrderedSet<T> {
 }
 fn suffixes(key: &EnvKey) -> Option<Vec<&'static str>> {
     match key {
-        EnvKey::PATH => Some(vec!["bin", "sbin"]),
-        EnvKey::MANPATH => Some(vec!["man", "share/man"]),
+        EnvKey::Path => Some(vec!["bin", "sbin"]),
+        EnvKey::Manpath => Some(vec!["man", "share/man"]),
         EnvKey::PkgConfigPath => Some(vec!["share/pkgconfig", "lib/pkgconfig"]),
         EnvKey::XdgDataDirs => Some(vec!["share"]),
         EnvKey::LibraryPath
         | EnvKey::LdLibraryPath
         | EnvKey::DyldFallbackLibraryPath
-        | EnvKey::CPATH
+        | EnvKey::Cpath
         | EnvKey::CmakePrefixPath
         | EnvKey::SslCertFile
-        | EnvKey::LDFLAGS
+        | EnvKey::Ldflags
         | EnvKey::PkgxDir
         | EnvKey::AclocalPath => None,
     }

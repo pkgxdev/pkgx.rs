@@ -11,6 +11,7 @@ use crate::config::Config;
 pub async fn install_multi(
     pending: &Vec<Package>,
     config: &Config,
+    silent: bool,
 ) -> Result<Vec<Installation>, Box<dyn std::error::Error>> {
     struct SharedState {
         pb: Option<ProgressBar>,
@@ -36,12 +37,13 @@ pub async fn install_multi(
                 let mut state = shared_state.lock().unwrap();
                 state.total_size += size;
                 state.counter += 1;
-                if state.counter == n {
+                if state.counter == n && !silent {
                     let bar = ProgressBar::new(state.total_size);
                     bar.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
                         .expect("failed to construct progress bar")
                         .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
                         .progress_chars("#>-"));
+                    bar.tick();
                     state.pb = Some(bar);
                 }
             }
@@ -57,6 +59,10 @@ pub async fn install_multi(
     }
 
     let results = join_all(promises).await;
+    if let Some(bar) = &shared_state.lock().unwrap().pb {
+        bar.finish();
+    }
+
     let mut installations = vec![];
 
     // Handle results

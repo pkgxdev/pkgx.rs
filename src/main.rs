@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match mode {
         args::Mode::Help => {
-            println!("{}", help::usage(flags.verbosity));
+            println!("{}", help::usage());
             return Ok(());
         }
         args::Mode::Version => {
@@ -65,7 +65,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let resolution = resolve(graph, &config).await?;
     let mut installations = resolution.installed;
     if !resolution.pending.is_empty() {
-        let installed = install_multi::install_multi(&resolution.pending, &config).await?;
+        let installed =
+            install_multi::install_multi(&resolution.pending, &config, flags.silent).await?;
         installations.extend(installed);
     }
 
