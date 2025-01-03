@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     } else {
         let cmd = if find_program {
-            utils::find_program(&args.remove(0), &env["PATH"])?
+            utils::find_program(&args.remove(0), &env["PATH"], &config).await?
         } else if args[0].contains('/') {
             // user specified a path to program which we should use
             args.remove(0)
@@ -98,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .collect::<Vec<String>>(),
                 );
             }
-            utils::find_program(&args.remove(0), &paths)?
+            utils::find_program(&args.remove(0), &paths, &config).await?
         };
         let env = env::mix(env);
         execve(cmd, args, env)
