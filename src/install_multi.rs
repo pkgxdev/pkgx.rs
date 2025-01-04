@@ -54,6 +54,7 @@ pub async fn install_multi(
                             write!(w, "{:.precision$}/{}", left, right, precision = leftprecision).unwrap()
                         })
                         .progress_chars("⌬ "));
+                    bar.enable_steady_tick(std::time::Duration::from_millis(100));
                     bar.tick();
                     state.pb = Some(bar);
                 }
