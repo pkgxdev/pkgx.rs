@@ -39,6 +39,7 @@ pub async fn install_multi(
                 state.counter += 1;
                 if state.counter == n && !silent {
                     let bar = ProgressBar::new(state.total_size);
+                    #[allow(clippy::literal_string_with_formatting_args)]
                     bar.set_style(ProgressStyle::with_template("{elapsed:.dim} ❲{wide_bar:.red}❳ {percent}% {bytes_per_sec:.dim} {bytes:.dim}")
                         .expect("failed to construct progress bar")
                         .with_key("elapsed", |state: &ProgressState, w: &mut dyn Write| {
