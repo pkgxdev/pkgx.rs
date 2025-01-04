@@ -1,6 +1,8 @@
 use async_compression::tokio::bufread::XzDecoder;
+use fs2::FileExt;
 use reqwest::Client;
-use std::{error::Error, path::PathBuf};
+use std::{error::Error, fs::OpenOptions, path::PathBuf};
+use tokio::task;
 use tokio_tar::Archive;
 
 // Compatibility trait lets us call `compat()` on a futures::io::AsyncRead
@@ -33,6 +35,22 @@ pub async fn install<F>(
 where
     F: FnMut(InstallEvent) + Send + 'static,
 {
+    let shelf = config.pkgx_dir.join(&pkg.project);
+    fs::create_dir_all(&shelf)?;
+    let shelf = OpenOptions::new()
+        .read(true) // Open the directory in read-only mode
+        .open(shelf)?;
+
+    task::spawn_blocking({
+        let shelf = shelf.try_clone()?;
+        move || {
+            shelf
+                .lock_exclusive()
+                .expect("couldn’t obtain lock, is another pkgx instance running?");
+        }
+    })
+    .await?;
+
     let url = inventory::get_url(pkg, config);
     let client = Client::new();
     let rsp = client.get(url).send().await?.error_for_status()?;
@@ -68,6 +86,8 @@ where
     };
 
     symlink(&installation, config).await?;
+
+    FileExt::unlock(&shelf)?;
 
     Ok(installation)
 }
