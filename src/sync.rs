@@ -1,7 +1,8 @@
 use crate::config::Config;
 use async_compression::tokio::bufread::GzipDecoder;
+use fs2::FileExt;
 use futures::TryStreamExt;
-use std::path::PathBuf;
+use std::{fs::OpenOptions, path::PathBuf};
 use tokio_tar::Archive;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 
@@ -19,7 +20,12 @@ async fn download_and_extract_pantry(
     url: &str,
     dest: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Step 1: Download the pantry.tgz file
+    let dir = OpenOptions::new()
+        .read(true) // Open in read-only mode; no need to write.
+        .open(dest)?;
+
+    dir.lock_exclusive()?;
+
     let rsp = reqwest::get(url).await?.error_for_status()?;
 
     let stream = rsp.bytes_stream();
@@ -34,6 +40,8 @@ async fn download_and_extract_pantry(
     // Step 3: Extract the tar archive
     let mut archive = Archive::new(decoder);
     archive.unpack(dest).await?;
+
+    FileExt::unlock(&dir)?;
 
     Ok(())
 }
