@@ -41,6 +41,7 @@ where
     let dry = condense(input);
     let mut graph: HashMap<String, Box<Node>> = HashMap::new();
     let mut stack: Vec<Box<Node>> = vec![];
+    let mut additional_unicodes: Vec<VersionReq> = vec![];
 
     for pkg in dry.iter() {
         let node = graph
@@ -55,17 +56,37 @@ where
             let child_node = graph
                 .entry(child_pkg.project.clone())
                 .or_insert_with(|| Box::new(Node::new(child_pkg.clone(), Some(current.clone()))));
-            child_node.pkg.constraint =
-                intersect_constraints(&child_node.pkg.constraint, &child_pkg.constraint)?;
-            current.children.insert(child_node.pkg.project.clone());
-            stack.push(child_node.clone());
+            let intersection =
+                intersect_constraints(&child_node.pkg.constraint, &child_pkg.constraint);
+            if let Ok(constraint) = intersection {
+                child_node.pkg.constraint = constraint;
+                current.children.insert(child_node.pkg.project.clone());
+                stack.push(child_node.clone());
+            } else if child_pkg.project == "unicode.org" {
+                // we handle unicode.org for now to allow situations like:
+                // https://github.com/pkgxdev/pantry/issues/4104
+                // https://github.com/pkgxdev/pkgx/issues/899
+                additional_unicodes.push(child_pkg.constraint);
+            } else {
+                return Err(intersection.unwrap_err());
+            }
         }
     }
 
-    let mut nodes: Vec<&Box<Node>> = graph.values().collect();
-    nodes.sort_by_key(|node| node.count());
-    let nodes = nodes.into_iter().map(|node| node.pkg.clone()).collect();
-    Ok(nodes)
+    let mut pkgs: Vec<&Box<Node>> = graph.values().collect();
+    pkgs.sort_by_key(|node| node.count());
+    let mut pkgs: Vec<PackageReq> = pkgs.into_iter().map(|node| node.pkg.clone()).collect();
+
+    // see above explanation
+    for constraint in additional_unicodes {
+        let pkg = PackageReq {
+            project: "unicode.org".to_string(),
+            constraint,
+        };
+        pkgs.push(pkg);
+    }
+
+    Ok(pkgs)
 }
 
 /// Condenses a list of `PackageRequirement` by intersecting constraints for duplicates.
