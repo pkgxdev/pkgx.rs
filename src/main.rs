@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             println!("pkgx {}", env!("CARGO_PKG_VERSION"));
             return Ok(());
         }
-        _ => (),
+        args::Mode::X => (),
     }
 
     let config = Config::new()?;
@@ -116,14 +116,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let env = env::map(&installations);
 
-    if args.is_empty() {
-        let env = env.iter().map(|(k, v)| (k.clone(), v.join(":"))).collect();
-        let env = env::mix_runtime(&env, &installations, &conn)?;
-        for (key, value) in env {
-            println!("{}=\"{}${{{}:+:${}}}\"", key, value, key, key);
-        }
-        Ok(())
-    } else {
+    if !args.is_empty() {
         let pkgx_lvl = std::env::var("PKGX_LVL")
             .unwrap_or("0".to_string())
             .parse()
@@ -155,11 +148,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 );
             }
             utils::find_program(&args.remove(0), &paths, &config).await?
-        };
+        }
+        ;
         let env = env::mix(env);
         let mut env = env::mix_runtime(&env, &installations, &conn)?;
+
+        // fork bomb protection
         env.insert("PKGX_LVL".to_string(), pkgx_lvl.to_string());
+
         execve(cmd, args, env)
+
+    } else if !env.is_empty() {
+        let env = env.iter().map(|(k, v)| (k.clone(), v.join(":"))).collect();
+        let env = env::mix_runtime(&env, &installations, &conn)?;
+        for (key, value) in env {
+            println!("{}=\"{}${{{}:+:${}}}\"", key, value, key, key);
+        }
+        Ok(())
+    } else {
+        eprintln!("{}", help::usage());
+        std::process::exit(2);
     }
 }
 
