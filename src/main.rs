@@ -148,8 +148,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 );
             }
             utils::find_program(&args.remove(0), &paths, &config).await?
-        }
-        ;
+        };
         let env = env::mix(env);
         let mut env = env::mix_runtime(&env, &installations, &conn)?;
 
@@ -157,7 +156,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         env.insert("PKGX_LVL".to_string(), pkgx_lvl.to_string());
 
         execve(cmd, args, env)
-
     } else if !env.is_empty() {
         let env = env.iter().map(|(k, v)| (k.clone(), v.join(":"))).collect();
         let env = env::mix_runtime(&env, &installations, &conn)?;
