@@ -131,3 +131,33 @@ pub fn resolve(mut pkg: PackageReq, conn: &Connection) -> Result<PackageReq, Box
     }
     Ok(pkg)
 }
+
+pub fn companions_for_projects(
+    projects: &[String],
+    conn: &Connection,
+) -> Result<Vec<PackageReq>, Box<dyn Error>> {
+    if projects.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Generate placeholders for the IN clause (?, ?, ?, ...)
+    let placeholders = projects.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    let query = format!(
+        "SELECT pkgspec FROM companions WHERE project IN ({})",
+        placeholders
+    );
+
+    let mut stmt = conn.prepare(&query)?;
+
+    let companions = stmt.query_map(
+        rusqlite::params_from_iter(projects.iter()), // Efficiently bind the projects
+        |row| {
+            let pkgspec: String = row.get(0)?;
+            let pkgrq = PackageReq::parse(&pkgspec).unwrap(); //TODO handle error!
+            Ok(pkgrq)
+        },
+    )?;
+
+    // Collect results into a Vec<PackageReq>, propagating errors
+    Ok(companions.collect::<Result<Vec<_>, _>>()?)
+}
