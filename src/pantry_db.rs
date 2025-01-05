@@ -89,7 +89,6 @@ pub fn deps_for_project(
     conn: &Connection,
 ) -> Result<Vec<PackageReq>, Box<dyn Error>> {
     let mut stmt = conn.prepare("SELECT pkgspec FROM dependencies WHERE project = ?1")?;
-
     let rv = stmt.query_map(params![project], |row| {
         let pkgspec: String = row.get(0)?;
         let pkgrq = PackageReq::parse(&pkgspec).unwrap(); //FIXME unwrap()
@@ -98,14 +97,14 @@ pub fn deps_for_project(
     Ok(rv.collect::<Result<Vec<_>, _>>()?)
 }
 
-pub fn which(cmd: &String, conn: &Connection) -> Result<String, Box<dyn Error>> {
+pub fn which(cmd: &String, conn: &Connection) -> Result<Vec<String>, Box<dyn Error>> {
     let mut stmt = conn.prepare("SELECT project FROM provides WHERE program = ?1")?;
+    let mut rv = Vec::new();
     let mut rows = stmt.query(params![cmd])?;
-    if let Some(row) = rows.next()? {
-        Ok(row.get(0)?)
-    } else {
-        Err("No project found for the given command".into())
+    while let Some(row) = rows.next()? {
+        rv.push(row.get(0)?);
     }
+    Ok(rv)
 }
 
 pub fn runtime_env_for_project(
@@ -122,14 +121,6 @@ pub fn runtime_env_for_project(
         env.insert(key.to_string(), value.to_string());
     }
     Ok(env)
-}
-
-// given pkgspec of program@version or project@version return PackageReq
-pub fn resolve(mut pkg: PackageReq, conn: &Connection) -> Result<PackageReq, Box<dyn Error>> {
-    if let Ok(project) = which(&pkg.project, conn) {
-        pkg.project = project;
-    }
-    Ok(pkg)
 }
 
 pub fn companions_for_projects(

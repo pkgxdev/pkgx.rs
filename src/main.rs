@@ -15,6 +15,8 @@ mod sync;
 mod types;
 mod utils;
 
+use std::error::Error;
+
 use config::Config;
 use execve::execve;
 use hydrate::hydrate;
@@ -22,7 +24,7 @@ use resolve::resolve;
 use types::PackageReq;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn Error>> {
     let args::Args {
         plus,
         mut args,
@@ -53,17 +55,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut pkgs = vec![];
-    for arg in plus {
-        let arg = PackageReq::parse(&arg)?;
-        let pkg = pantry_db::resolve(arg, &conn)?;
-        pkgs.push(pkg);
+    for pkgspec in plus {
+        let PackageReq {
+            project: project_or_cmd,
+            constraint,
+        } = PackageReq::parse(&pkgspec)?;
+        if config
+            .pantry_dir
+            .join("projects")
+            .join(project_or_cmd.clone())
+            .is_dir()
+        {
+            pkgs.push(PackageReq {
+                project: project_or_cmd,
+                constraint,
+            });
+        } else {
+            let project = which(&project_or_cmd, &conn)?;
+            pkgs.push(PackageReq {
+                project,
+                constraint,
+            });
+        }
     }
 
     if find_program {
-        let mut pkg = PackageReq::parse(&args[0])?;
-        args[0] = pkg.project.clone(); // converts eg. `node@20` to `node`
-        pkg = pantry_db::resolve(pkg, &conn)?;
-        pkgs.push(pkg);
+        let PackageReq {
+            constraint,
+            project: cmd,
+        } = PackageReq::parse(&args[0])?;
+        args[0] = cmd.clone(); // invoke eg. `node` rather than `node@20`
+        let project = which(&cmd, &conn)?;
+        pkgs.push(PackageReq {
+            project,
+            constraint,
+        });
     }
 
     let companions = pantry_db::companions_for_projects(
@@ -135,5 +161,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut env = env::mix_runtime(&env, &installations, &conn)?;
         env.insert("PKGX_LVL".to_string(), pkgx_lvl.to_string());
         execve(cmd, args, env)
+    }
+}
+
+fn which(cmd: &String, conn: &rusqlite::Connection) -> Result<String, Box<dyn Error>> {
+    let candidates = pantry_db::which(cmd, conn)?;
+    if candidates.len() == 1 {
+        Ok(candidates[0].clone())
+    } else if candidates.is_empty() {
+        return Err(format!("cmd not found: {}", cmd).into());
+    } else {
+        return Err(format!(
+            "cmd `{}` provided by multiple projects: {:?}",
+            cmd, candidates
+        )
+        .into());
     }
 }
