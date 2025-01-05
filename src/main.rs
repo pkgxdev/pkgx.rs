@@ -66,6 +66,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         pkgs.push(pkg);
     }
 
+    let companions = pantry_db::companions_for_projects(
+        &pkgs
+            .iter()
+            .map(|project| project.project.clone())
+            .collect::<Vec<_>>(),
+        &conn,
+    )?;
+
+    pkgs.extend(companions);
+
     let graph = hydrate(&pkgs, |project| {
         pantry_db::deps_for_project(&project, &conn)
     })
@@ -89,6 +99,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Ok(())
     } else {
+        let pkgx_lvl = std::env::var("PKGX_LVL")
+            .unwrap_or("0".to_string())
+            .parse()
+            .unwrap_or(0)
+            + 1;
+        if pkgx_lvl >= 10 {
+            return Err("PKGX_LVL exceeded: https://github.com/orgs/pkgxdev/discussions/11".into());
+        }
+
         let cmd = if find_program {
             utils::find_program(&args.remove(0), &env["PATH"], &config).await?
         } else if args[0].contains('/') {
@@ -113,7 +132,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             utils::find_program(&args.remove(0), &paths, &config).await?
         };
         let env = env::mix(env);
-        let env = env::mix_runtime(&env, &installations, &conn)?;
+        let mut env = env::mix_runtime(&env, &installations, &conn)?;
+        env.insert("PKGX_LVL".to_string(), pkgx_lvl.to_string());
         execve(cmd, args, env)
     }
 }
