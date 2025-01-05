@@ -48,8 +48,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let config = Config::new()?;
 
     let conn = if sync::should(&config) {
-        sync::replace(&config).await?;
-        pantry_db::cache(&config)?
+        sync::replace(&config).await?
     } else {
         rusqlite::Connection::open(config.pantry_dir.parent().unwrap().join("pantry.db"))?
     };
