@@ -169,10 +169,7 @@ pub fn expand_moustaches(input: &str, pkg: &Installation, deps: &Vec<Installatio
     }
 
     output = output.replace("{{prefix}}", &pkg.path.to_string_lossy());
-    output = output.replace(
-        "{{version}}",
-        &crate::types::semverator_version_to_string(&pkg.pkg.version),
-    );
+    output = output.replace("{{version}}", &format!("{}", &pkg.pkg.version));
     output = output.replace("{{version.major}}", &format!("{}", pkg.pkg.version.major));
     output = output.replace("{{version.minor}}", &format!("{}", pkg.pkg.version.minor));
     output = output.replace("{{version.patch}}", &format!("{}", pkg.pkg.version.patch));
@@ -189,7 +186,7 @@ pub fn expand_moustaches(input: &str, pkg: &Installation, deps: &Vec<Installatio
         );
         output = output.replace(
             &format!("{{{{{}.version}}}}", prefix),
-            &crate::types::semverator_version_to_string(&dep.pkg.version),
+            &format!("{}", &dep.pkg.version),
         );
         output = output.replace(
             &format!("{{{{{}.version.major}}}}", prefix),

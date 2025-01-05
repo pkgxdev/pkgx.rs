@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use libsemverator::range::{Constraint, Range as VersionReq};
+use libsemverator::range::Range as VersionReq;
 use libsemverator::semver::Semver as Version;
 use std::error::Error;
 use std::fmt;
@@ -16,12 +16,7 @@ pub struct Package {
 
 impl fmt::Display for Package {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}={}",
-            self.project,
-            semverator_version_to_string(&self.version)
-        )
+        write!(f, "{}={}", self.project, &self.version)
     }
 }
 
@@ -55,98 +50,9 @@ impl PackageReq {
     }
 }
 
-pub fn semverator_version_to_string(version: &Version) -> String {
-    version
-        .components
-        .iter()
-        .map(|c| c.to_string())
-        .collect::<Vec<_>>()
-        .join(".")
-}
-
-fn semverator_range_to_string(range: &VersionReq) -> String {
-    range
-        .set
-        .iter()
-        .map(|v| match v {
-            Constraint::Any => "*".to_string(),
-            Constraint::Single(v) => format!("={}", semverator_version_to_string(v)),
-            Constraint::Contiguous(v1, v2) => {
-                if v2.major == v1.major + 1 && v2.minor == 0 && v2.patch == 0 {
-                    let v = chomp(v1);
-                    if v1.major == 0 {
-                        if v1.components.len() == 1 {
-                            "^0".to_string()
-                        } else {
-                            format!(">={}<1", v)
-                        }
-                    } else {
-                        format!("^{}", v)
-                    }
-                } else if v2.major == v1.major && v2.minor == v1.minor + 1 && v2.patch == 0 {
-                    let v = chomp(v1);
-                    format!("~{}", v)
-                } else if v2.major == usize::MAX {
-                    let v = chomp(v1);
-                    format!(">={}", v)
-                } else if at(v1, v2) {
-                    format!("@{}", semverator_version_to_string(v1))
-                } else {
-                    format!(">={}<{}", chomp(v1), chomp(v2))
-                }
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(",")
-}
-
-fn at(v1: &Version, v2: &Version) -> bool {
-    let mut cc1 = v1.components.clone();
-    let cc2 = &v2.components;
-
-    if cc1.len() > cc2.len() {
-        return false;
-    }
-
-    // Ensure cc1 and cc2 have the same length by appending 0s to cc1
-    while cc1.len() < cc2.len() {
-        cc1.push(0);
-    }
-
-    if last(&cc1) != last(cc2) - 1 {
-        return false;
-    }
-
-    for i in 0..cc1.len() - 1 {
-        if cc1[i] != cc2[i] {
-            return false;
-        }
-    }
-
-    true
-}
-
-fn last(arr: &[usize]) -> usize {
-    *arr.last().unwrap()
-}
-
-fn chomp(v: &Version) -> String {
-    let result = v.raw.trim_end_matches(".0");
-    if result.is_empty() {
-        "0".to_string()
-    } else {
-        result.to_string()
-    }
-}
-
 impl fmt::Display for PackageReq {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}{}",
-            self.project,
-            semverator_range_to_string(&self.constraint)
-        )
+        write!(f, "{}{}", self.project, &self.constraint)
     }
 }
 
