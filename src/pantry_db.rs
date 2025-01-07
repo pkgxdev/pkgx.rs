@@ -1,20 +1,10 @@
-use std::{collections::HashMap, error::Error, fs};
+use std::{collections::HashMap, error::Error};
 
 use rusqlite::{params, Connection};
 
 use crate::{config::Config, pantry, types::PackageReq};
 
-pub fn cache(config: &Config) -> Result<Connection, Box<dyn Error>> {
-    let path = config.pantry_dir.parent().unwrap().join("pantry.db");
-
-    // Remove the existing database file
-    if path.exists() {
-        fs::remove_file(&path)?;
-    }
-
-    // Set up SQLite connection
-    let mut conn = Connection::open(&path)?;
-
+pub fn cache(config: &Config, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     conn.execute_batch(
         "
     PRAGMA synchronous = OFF;
@@ -50,7 +40,13 @@ pub fn cache(config: &Config) -> Result<Connection, Box<dyn Error>> {
     let tx = conn.transaction()?;
 
     for pkg in pantry::ls(config) {
-        for program in pkg.programs {
+        for mut program in pkg.programs {
+            program = std::path::Path::new(&program)
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
             tx.execute(
                 "INSERT INTO provides (project, program) VALUES (?1, ?2);",
                 params![pkg.project, program],
@@ -67,7 +63,7 @@ pub fn cache(config: &Config) -> Result<Connection, Box<dyn Error>> {
         for companion in pkg.companions {
             tx.execute(
                 "INSERT INTO companions (project, pkgspec) VALUES (?1, ?2);",
-                params![pkg.project, companion],
+                params![pkg.project, companion.to_string()],
             )?;
         }
 
@@ -81,7 +77,7 @@ pub fn cache(config: &Config) -> Result<Connection, Box<dyn Error>> {
 
     tx.commit()?;
 
-    Ok(conn)
+    Ok(())
 }
 
 pub fn deps_for_project(
@@ -97,7 +93,7 @@ pub fn deps_for_project(
     Ok(rv.collect::<Result<Vec<_>, _>>()?)
 }
 
-pub fn which(cmd: &String, conn: &Connection) -> Result<Vec<String>, Box<dyn Error>> {
+pub fn which(cmd: &String, conn: &Connection) -> Result<Vec<String>, rusqlite::Error> {
     let mut stmt = conn.prepare("SELECT project FROM provides WHERE program = ?1")?;
     let mut rv = Vec::new();
     let mut rows = stmt.query(params![cmd])?;
