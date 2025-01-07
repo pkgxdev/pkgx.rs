@@ -73,7 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Err(WhichError::CmdNotFound(cmd)) => {
                 if !did_sync {
                     // cmd not found ∴ sync in case it is new
-                    // sync::replace(&config, &mut conn).await?;
+                    sync::replace(&config, &mut conn).await?;
                     which(&cmd, &conn).await
                 } else {
                     Err(WhichError::CmdNotFound(cmd))
