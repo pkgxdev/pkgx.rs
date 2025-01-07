@@ -21,6 +21,7 @@ use config::Config;
 use execve::execve;
 use hydrate::hydrate;
 use resolve::resolve;
+use rusqlite::Connection;
 use types::PackageReq;
 
 #[tokio::main]
@@ -47,13 +48,47 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let config = Config::new()?;
 
-    let conn = if sync::should(&config) {
-        sync::replace(&config).await?
+    let cache_dir = config.pantry_dir.parent().unwrap();
+    std::fs::create_dir_all(cache_dir)?;
+    let mut conn = Connection::open(cache_dir.join("pantry.db"))?;
+
+    let did_sync = if sync::should(&config) {
+        sync::replace(&config, &mut conn).await?;
+        true
     } else {
-        rusqlite::Connection::open(config.pantry_dir.parent().unwrap().join("pantry.db"))?
+        false
     };
 
     let mut pkgs = vec![];
+
+    if find_program {
+        let PackageReq {
+            constraint,
+            project: cmd,
+        } = PackageReq::parse(&args[0])?;
+
+        args[0] = cmd.clone(); // invoke eg. `node` rather than eg. `node@20`
+
+        let project = match which(&cmd, &conn).await {
+            Err(WhichError::CmdNotFound(cmd)) => {
+                if !did_sync {
+                    // cmd not found ∴ sync in case it is new
+                    // sync::replace(&config, &mut conn).await?;
+                    which(&cmd, &conn).await
+                } else {
+                    Err(WhichError::CmdNotFound(cmd))
+                }
+            }
+            Err(err) => Err(err),
+            Ok(project) => Ok(project),
+        }?;
+
+        pkgs.push(PackageReq {
+            project,
+            constraint,
+        });
+    }
+
     for pkgspec in plus {
         let PackageReq {
             project: project_or_cmd,
@@ -70,25 +105,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 constraint,
             });
         } else {
-            let project = which(&project_or_cmd, &conn)?;
+            let project = which(&project_or_cmd, &conn).await?;
             pkgs.push(PackageReq {
                 project,
                 constraint,
             });
         }
-    }
-
-    if find_program {
-        let PackageReq {
-            constraint,
-            project: cmd,
-        } = PackageReq::parse(&args[0])?;
-        args[0] = cmd.clone(); // invoke eg. `node` rather than `node@20`
-        let project = which(&cmd, &conn)?;
-        pkgs.push(PackageReq {
-            project,
-            constraint,
-        });
     }
 
     let companions = pantry_db::companions_for_projects(
@@ -127,7 +149,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
 
         let cmd = if find_program {
-            utils::find_program(&args.remove(0), &env["PATH"], &config).await?
+            utils::find_program(&args.remove(0), &env["PATH"]).await?
         } else if args[0].contains('/') {
             // user specified a path to program which we should use
             args.remove(0)
@@ -147,7 +169,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         .collect::<Vec<String>>(),
                 );
             }
-            utils::find_program(&args.remove(0), &paths, &config).await?
+            utils::find_program(&args.remove(0), &paths).await?
         };
         let env = env::mix(env);
         let mut env = env::mix_runtime(&env, &installations, &conn)?;
@@ -169,17 +191,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn which(cmd: &String, conn: &rusqlite::Connection) -> Result<String, Box<dyn Error>> {
-    let candidates = pantry_db::which(cmd, conn)?;
+#[derive(Debug)]
+pub enum WhichError {
+    CmdNotFound(String),
+    MultipleProjects(String, Vec<String>),
+    DbError(rusqlite::Error),
+}
+
+impl std::fmt::Display for WhichError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WhichError::CmdNotFound(cmd) => write!(f, "cmd not found: {}", cmd),
+            WhichError::MultipleProjects(cmd, projects) => {
+                write!(f, "multiple projects found for {}: {:?}", cmd, projects)
+            }
+            WhichError::DbError(err) => write!(f, "db error: {}", err),
+        }
+    }
+}
+
+impl std::error::Error for WhichError {}
+
+async fn which(cmd: &String, conn: &Connection) -> Result<String, WhichError> {
+    let candidates = pantry_db::which(cmd, conn).map_err(WhichError::DbError)?;
     if candidates.len() == 1 {
         Ok(candidates[0].clone())
     } else if candidates.is_empty() {
-        return Err(format!("cmd not found: {}", cmd).into());
+        return Err(WhichError::CmdNotFound(cmd.clone()));
     } else {
-        return Err(format!(
-            "cmd `{}` provided by multiple projects: {:?}",
-            cmd, candidates
-        )
-        .into());
+        return Err(WhichError::MultipleProjects(cmd.clone(), candidates));
     }
 }

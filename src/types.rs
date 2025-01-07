@@ -4,6 +4,7 @@ use libsemverator::semver::Semver as Version;
 use std::error::Error;
 use std::fmt;
 
+//TODO regex is probs not most efficient (but do perf tests if you change it)
 lazy_static! {
     static ref PACKAGE_REGEX: Regex = Regex::new(r"^(.+?)([\^=~<>@].+)?$").unwrap();
 }
@@ -52,7 +53,11 @@ impl PackageReq {
 
 impl fmt::Display for PackageReq {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.project, &self.constraint)
+        if self.constraint.raw == "*" {
+            write!(f, "{}", self.project)
+        } else {
+            write!(f, "{}{}", self.project, &self.constraint)
+        }
     }
 }
 
