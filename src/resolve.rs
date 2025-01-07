@@ -25,14 +25,13 @@ pub async fn resolve(reqs: Vec<PackageReq>, config: &Config) -> Result<Resolutio
     let mut futures = FuturesUnordered::new();
 
     for req in reqs {
-        let config_clone = config; // Clone config for use in async block
         futures.push(async move {
-            if let Some(installation) = cellar::has(&req, config_clone).await {
+            if let Some(installation) = cellar::has(&req, config).await {
                 Ok::<_, Box<dyn Error>>((
                     Some((installation.clone(), installation.pkg.clone())),
                     None,
                 ))
-            } else if let Ok(Some(version)) = inventory::select(&req, config_clone).await {
+            } else if let Ok(Some(version)) = inventory::select(&req, config).await {
                 let pkg = Package {
                     project: req.project.clone(),
                     version,
