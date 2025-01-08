@@ -15,7 +15,7 @@ mod sync;
 mod types;
 mod utils;
 
-use std::error::Error;
+use std::{error::Error, time::Duration};
 
 use config::Config;
 use execve::execve;
@@ -53,12 +53,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
     std::fs::create_dir_all(cache_dir)?;
     let mut conn = Connection::open(cache_dir.join("pantry.db"))?;
 
+    let spinner = if flags.silent {
+        None
+    } else {
+        let spinner = indicatif::ProgressBar::new_spinner();
+        spinner.enable_steady_tick(Duration::from_millis(100));
+        Some(spinner)
+    };
+
     let did_sync = if sync::should(&config) {
+        if let Some(spinner) = &spinner {
+            spinner.set_message("syncing pkg-db…");
+        }
         sync::replace(&config, &mut conn).await?;
         true
     } else {
         false
     };
+
+    if let Some(spinner) = &spinner {
+        spinner.set_message("resolving pkg graph…");
+    }
 
     let mut pkgs = vec![];
 
@@ -73,8 +88,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let project = match which(&cmd, &conn).await {
             Err(WhichError::CmdNotFound(cmd)) => {
                 if !did_sync {
+                    if let Some(spinner) = &spinner {
+                        let msg = format!("{} not found, syncing…", cmd);
+                        spinner.set_message(msg);
+                    }
                     // cmd not found ∴ sync in case it is new
                     sync::replace(&config, &mut conn).await?;
+                    if let Some(spinner) = &spinner {
+                        spinner.set_message("resolving pkg graph…");
+                    }
                     which(&cmd, &conn).await
                 } else {
                     Err(WhichError::CmdNotFound(cmd))
@@ -130,6 +152,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .await?;
 
     let resolution = resolve(graph, &config).await?;
+
+    if let Some(spinner) = &spinner {
+        spinner.finish_and_clear();
+    }
+
     let mut installations = resolution.installed;
     if !resolution.pending.is_empty() {
         let installed =
