@@ -1,6 +1,8 @@
 use lazy_static::lazy_static;
 use libsemverator::range::Range as VersionReq;
 use libsemverator::semver::Semver as Version;
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 use std::error::Error;
 use std::fmt;
 
@@ -9,7 +11,7 @@ lazy_static! {
     static ref PACKAGE_REGEX: Regex = Regex::new(r"^(.+?)([\^=~<>@].+)?$").unwrap();
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct Package {
     pub project: String,
     pub version: Version,
@@ -65,6 +67,19 @@ impl fmt::Display for PackageReq {
 pub struct Installation {
     pub path: std::path::PathBuf,
     pub pkg: Package,
+}
+
+impl Serialize for Installation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("MyType", 3)?;
+        state.serialize_field("path", &self.path)?;
+        state.serialize_field("project", &self.pkg.project)?;
+        state.serialize_field("version", &self.pkg.version)?;
+        state.end()
+    }
 }
 
 // These are only used per build at present

@@ -22,6 +22,7 @@ use execve::execve;
 use hydrate::hydrate;
 use resolve::resolve;
 use rusqlite::Connection;
+use serde_json::json;
 use types::PackageReq;
 
 #[tokio::main]
@@ -179,10 +180,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         execve(cmd, args, env)
     } else if !env.is_empty() {
-        let env = env.iter().map(|(k, v)| (k.clone(), v.join(":"))).collect();
-        let env = env::mix_runtime(&env, &installations, &conn)?;
-        for (key, value) in env {
-            println!("{}=\"{}${{{}:+:${}}}\"", key, value, key, key);
+        if !flags.json {
+            let env = env.iter().map(|(k, v)| (k.clone(), v.join(":"))).collect();
+            let env = env::mix_runtime(&env, &installations, &conn)?;
+            for (key, value) in env {
+                println!("{}=\"{}${{{}:+:${}}}\"", key, value, key, key);
+            }
+        } else {
+            let json = json!({
+                "pkgs": installations,
+                "env": env
+            });
+            println!("{}", json);
         }
         Ok(())
     } else {
