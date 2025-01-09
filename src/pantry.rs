@@ -35,15 +35,9 @@ impl PantryEntry {
         let deps = if let Some(deps) = entry.dependencies {
             deps.0
                 .iter()
-                .map(|(k, v)| {
-                    // if v is a number, prefix with ^
-                    let v = if v.chars().next().unwrap().is_ascii_digit() {
-                        format!("^{}", v)
-                    } else {
-                        v.clone()
-                    };
-                    VersionReq::parse(&v).map(|constraint| PackageReq {
-                        project: k.clone(),
+                .map(|(project, constraint)| {
+                    VersionReq::parse(constraint).map(|constraint| PackageReq {
+                        project: project.clone(),
                         constraint,
                     })
                 })
@@ -63,13 +57,7 @@ impl PantryEntry {
                 .0
                 .iter()
                 .map(|(k, v)| {
-                    // if v is a number, prefix with ^
-                    let v = if v.chars().next().unwrap().is_ascii_digit() {
-                        format!("^{}", v)
-                    } else {
-                        v.clone()
-                    };
-                    VersionReq::parse(&v).map(|constraint| PackageReq {
+                    VersionReq::parse(v).map(|constraint| PackageReq {
                         project: k.clone(),
                         constraint,
                     })
@@ -145,9 +133,72 @@ struct RawPantryEntry {
     runtime: Option<Runtime>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 struct Runtime {
     env: HashMap<String, String>,
+}
+
+impl<'de> Deserialize<'de> for Runtime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[cfg(target_os = "macos")]
+        let platform_key = "darwin";
+        #[cfg(target_os = "linux")]
+        let platform_key = "linux";
+        #[cfg(target_os = "windows")]
+        let platform_key = "windows";
+        #[cfg(target_arch = "aarch64")]
+        let arch_key = "aarch64";
+        #[cfg(target_arch = "x86_64")]
+        let arch_key = "x86-64";
+
+        fn stringify(value: serde_yaml::Value) -> Option<String> {
+            match value {
+                serde_yaml::Value::String(s) => Some(s.clone()),
+                serde_yaml::Value::Number(n) => Some(n.to_string()),
+                serde_yaml::Value::Bool(b) => Some(b.to_string()),
+                _ => None,
+            }
+        }
+
+        let mut result = HashMap::new();
+
+        let root: HashMap<String, serde_yaml::Value> = Deserialize::deserialize(deserializer)?;
+
+        if let Some(env) = root.get("env").and_then(|x| x.as_mapping()).cloned() {
+            for (key, value) in env {
+                if key == "linux" || key == "darwin" || key == "windows" {
+                    // If the key is platform-specific, only include values for the current platform
+                    if key == platform_key {
+                        if let serde_yaml::Value::Mapping(value) = value {
+                            for (key, value) in value {
+                                if let (Some(key), Some(value)) = (stringify(key), stringify(value))
+                                {
+                                    result.insert(key, value);
+                                }
+                            }
+                        }
+                    }
+                } else if key == "aarch64" || key == "x86-64" {
+                    if key == arch_key {
+                        if let serde_yaml::Value::Mapping(value) = value {
+                            for (key, value) in value {
+                                if let (Some(key), Some(value)) = (stringify(key), stringify(value))
+                                {
+                                    result.insert(key, value);
+                                }
+                            }
+                        }
+                    }
+                } else if let (Some(key), Some(value)) = (stringify(key), stringify(value)) {
+                    result.insert(key, value);
+                }
+            }
+        }
+        Ok(Runtime { env: result })
+    }
 }
 
 #[derive(Debug)]
@@ -174,25 +225,32 @@ impl<'de> Deserialize<'de> for Deps {
         // Create the result map
         let mut result = HashMap::new();
 
+        fn handle_value(input: &serde_yaml::Value) -> Option<String> {
+            match input {
+                serde_yaml::Value::String(s) => Some(if s.chars().next().unwrap().is_numeric() {
+                    format!("^{}", s)
+                } else {
+                    s.clone()
+                }),
+                serde_yaml::Value::Number(n) => Some(format!("^{}", n)),
+                _ => None,
+            }
+        }
+
         for (key, value) in full_map {
             if key == "linux" || key == "darwin" || key == "windows" {
                 // If the key is platform-specific, only include values for the current platform
                 if key == platform_key {
                     if let serde_yaml::Value::Mapping(platform_values) = value {
                         for (k, v) in platform_values {
-                            if let (serde_yaml::Value::String(k), serde_yaml::Value::String(v)) =
-                                (k, v)
-                            {
+                            if let (serde_yaml::Value::String(k), Some(v)) = (k, handle_value(&v)) {
                                 result.insert(k, v);
                             }
                         }
                     }
                 }
-            } else {
-                // Include non-platform-specific keys
-                if let serde_yaml::Value::String(v) = value {
-                    result.insert(key, v);
-                }
+            } else if let Some(value) = handle_value(&value) {
+                result.insert(key, value);
             }
         }
 
