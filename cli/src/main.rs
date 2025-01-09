@@ -1,29 +1,16 @@
 mod args;
-mod cellar;
-mod config;
-mod env;
 mod execve;
 mod help;
-mod hydrate;
-mod install;
-mod install_multi;
-mod inventory;
-mod pantry;
-mod pantry_db;
-mod resolve;
-mod sync;
-mod types;
-mod utils;
 
 use std::{error::Error, time::Duration};
 
-use config::Config;
 use execve::execve;
-use hydrate::hydrate;
-use resolve::resolve;
+use libpkgx::{
+    config::Config, env, hydrate::hydrate, install_multi, pantry_db, resolve::resolve, sync,
+    types::PackageReq, utils,
+};
 use rusqlite::Connection;
 use serde_json::json;
-use types::PackageReq;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
