@@ -328,11 +328,5 @@ fn pretty_size(n: u64) -> (String, u64) {
 }
 
 fn precision(n: f64) -> usize {
-    if n < 10.0 {
-        2
-    } else if n < 100.0 {
-        1
-    } else {
-        0
-    }
+    2 - (n.log10().clamp(0.0, 2.0) as usize)
 }
