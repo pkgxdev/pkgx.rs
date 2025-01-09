@@ -153,6 +153,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let resolution = resolve(graph, &config).await?;
 
+    let spinner_clone = spinner.clone();
+    let clear_progress_bar = move || {
+        if let Some(spinner) = spinner_clone {
+            spinner.finish_and_clear();
+        }
+    };
+
     let mut installations = resolution.installed;
     if !resolution.pending.is_empty() {
         let installed = install_multi::install_multi(&resolution.pending, &config, spinner).await?;
@@ -200,8 +207,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         // fork bomb protection
         env.insert("PKGX_LVL".to_string(), pkgx_lvl.to_string());
 
+        clear_progress_bar();
+
         execve(cmd, args, env)
     } else if !env.is_empty() {
+        clear_progress_bar();
+
         if !flags.json {
             let env = env.iter().map(|(k, v)| (k.clone(), v.join(":"))).collect();
             let env = env::mix_runtime(&env, &installations, &conn)?;
@@ -217,6 +228,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         Ok(())
     } else {
+        clear_progress_bar();
         eprintln!("{}", help::usage());
         std::process::exit(2);
     }

@@ -71,7 +71,7 @@ fn configure_bar(pb: &ProgressBar) {
             )
             .unwrap()
         })
-        .progress_chars("⌬ "),
+        .progress_chars("⚯ "),
     );
     pb.enable_steady_tick(Duration::from_millis(50));
 }
