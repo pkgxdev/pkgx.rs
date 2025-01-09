@@ -10,6 +10,9 @@ on:
 
 name: ci·rs
 
+concurrency:
+  group: ci·rs·${{ github.ref}}
+
 jobs:
   check:
     strategy:
@@ -59,6 +62,24 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
+          args: --all-features
+        env:
+          RUSTFLAGS: "-D warnings"
+
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
           args: --all-features
         env:
           RUSTFLAGS: "-D warnings"
