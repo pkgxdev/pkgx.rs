@@ -1,6 +1,6 @@
 ![pkgx.dev](https://pkgx.dev/banner.png)
 
-`pkgx` is a single, *standalone binary* that can *run anything*.
+`pkgx` is a 4.2MB, *standalone* binary that can *run anything*.
 &nbsp;&nbsp;[![coverage][]][coveralls] [![teaRank][]](https://tea.xyz)
 
 &nbsp;
@@ -9,15 +9,10 @@
 ### Quickstart
 
 ```sh
-brew install pkgxdev/made/pkgx
+brew install pkgxdev/made/pkgx || sh <(curl https://pkgx.sh)
 ```
 
-> [!TIP]
-> `pkgx` is a tiny, standalone binary and is super easy to install.
-> * `cargo install pkgx`
-> * `sh <(curl https://pkgx.sh)` \
->   https://github.com/pkgxdev/setup/blob/main/installer.sh
-> * [docs.pkgx.sh/installing-w/out-brew]
+> [docs.pkgx.sh/installing-w/out-brew]
 
 &nbsp;
 
@@ -173,8 +168,80 @@ The `dev` tool requires shell integration to work.
 
 > [docs.pkgx.sh/dev][dev]
 
-&nbsp;
+## `pkgm`
 
+`pkgm` installs `pkgx` packages to `/usr/local`. It installs alongside `pkgx`.
+
+> [github.com/pkgxdev/pkgm](https://github.com/pkgxdev/pkgm)
+
+## Scripting
+
+One of the most powerful uses of `pkgx` is scripting, eg. here’s a script
+to release new versions to GitHub:
+
+```sh
+#!/usr/bin/env -S pkgx +gum +gh +npx +git bash -eo pipefail
+
+gum format "# Welcome to our Release Script"
+
+versions="$(git tag | grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+')"
+v_latest="$(npx -- semver --include-prerelease $versions | tail -n1)"
+v_new=$(npx -- semver bump $v_latest --increment $1)
+
+gh release create \
+  $v_new \
+  --title "$v_new Released 🎉" \
+  --generate-notes \
+  --notes-start-tag=v$v_latest
+```
+
+Above you can see how we “loaded” the shebang with `+pkg` syntax to bring in
+all the tools we needed.
+
+> We have pretty advanced versions of the above script, eg
+> [teaBASE][teaBASE-release-script]
+
+There’s tools for just about every language ecosystem so you can import
+dependencies, eg. using `uv` to import python packages (and the specific
+python you want too):
+
+```sh
+#!/usr/bin/env -S pkgx +python@3.11 uv run --script
+
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "requests<3",
+#   "rich",
+# ]
+# ///
+
+import requests
+from rich.pretty import pprint
+
+resp = requests.get("https://peps.python.org/api/peps.json")
+data = resp.json()
+pprint([(k, v["title"]) for k, v in data.items()][:10])
+```
+
+## Magic
+
+It can be fun to add magic to your shell:
+
+```sh
+# add to ~/.zshrc
+command_not_found_handler() {
+  pkgx -- "$@"
+}
+```
+
+Thus if you type `gh` and not in your `PATH` pkgx will install it and run it
+as though it was installed all along.
+
+> [!NOTE]
+> Bash is the same function but drop the `r` from the end of the name.
+
+&nbsp;
 
 
 ## Further Reading
@@ -207,6 +274,8 @@ If you have questions or feedback:
 [docs.pkgx.sh/installing-w/out-brew]: https://docs.pkgx.sh/installing-w/out-brew
 [docs.pkgx.sh/shell-integration]: https://docs.pkgx.sh/shell-integration
 [dev]: https://docs.pkgx.sh/dev
+[teaBASE-release-script]: https://github.com/teaxyz/teaBASE/blob/main/Scripts/publish-release.sh
+[Scriptisto]: https://github.com/igor-petruk/scriptisto
 
 [coverage]: https://coveralls.io/repos/github/pkgxdev/pkgx/badge.svg?branch=main
 [coveralls]: https://coveralls.io/github/pkgxdev/pkgx?branch=main
