@@ -49,7 +49,6 @@ pub async fn install_multi(
 fn configure_bar(pb: &ProgressBar) {
     pb.set_length(1);
     pb.set_style(
-        #[allow(clippy::literal_string_with_formatting_args)]
         ProgressStyle::with_template(
             "{elapsed:.dim} ❲{wide_bar:.red}❳ {percent}% {bytes_per_sec:.dim} {bytes:.dim}",
         )
