@@ -1,6 +1,8 @@
 mod args;
 mod execve;
 mod help;
+#[cfg(test)]
+mod tests;
 
 use std::{error::Error, fmt::Write, sync::Arc, time::Duration};
 
