@@ -153,14 +153,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let resolution = resolve(graph, &config).await?;
 
-    if let Some(spinner) = &spinner {
-        spinner.finish_and_clear();
-    }
-
     let mut installations = resolution.installed;
     if !resolution.pending.is_empty() {
-        let installed =
-            install_multi::install_multi(&resolution.pending, &config, flags.silent).await?;
+        let installed = install_multi::install_multi(&resolution.pending, &config, spinner).await?;
         installations.extend(installed);
     }
 
