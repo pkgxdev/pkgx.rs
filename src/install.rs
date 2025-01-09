@@ -30,7 +30,7 @@ pub enum InstallEvent {
 pub async fn install<F>(
     pkg: &Package,
     config: &Config,
-    mut event_callback: F,
+    mut event_callback: Option<F>,
 ) -> Result<Installation, Box<dyn Error>>
 where
     F: FnMut(InstallEvent) + Send + 'static,
@@ -59,13 +59,18 @@ where
         .content_length()
         .ok_or("Failed to get content length from response")?;
 
-    event_callback(InstallEvent::DownloadSize(total_size));
+    if let Some(cb) = event_callback.as_mut() {
+        cb(InstallEvent::DownloadSize(total_size));
+    }
 
     let stream = rsp.bytes_stream();
 
-    // Wrap the stream with progress reporting
-    let stream = stream.inspect_ok(|chunk| {
-        event_callback(InstallEvent::Progress(chunk.len() as u64));
+    //TODO we don’t want to add inspect_ok to the stream at all in --silent mode
+    //  ^^ but the borrow checker despises us with a venom I can barely articulate if we try
+    let stream = stream.inspect_ok(move |chunk| {
+        if let Some(cb) = event_callback.as_mut() {
+            cb(InstallEvent::Progress(chunk.len() as u64));
+        }
     });
 
     let stream = stream

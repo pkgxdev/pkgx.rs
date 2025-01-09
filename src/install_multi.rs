@@ -1,30 +1,66 @@
+use std::error::Error;
 use std::fmt::Write;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
-use crate::install;
+use crate::install::{install, InstallEvent};
 use crate::types::{Installation, Package};
-use futures::future::join_all;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
 use crate::config::Config;
 
 pub async fn install_multi(
-    pending: &Vec<Package>,
+    pending: &[Package],
     config: &Config,
-    silent: bool,
-) -> Result<Vec<Installation>, Box<dyn std::error::Error>> {
-    #[allow(clippy::literal_string_with_formatting_args)]
-    let pb = ProgressBar::new(0).with_style(
+    pb: Option<ProgressBar>,
+) -> Result<Vec<Installation>, Box<dyn Error>> {
+    let pb = pb.map(|pb| {
+        configure_bar(&pb);
+        Arc::new(Mutex::new(pb))
+    });
+
+    pending
+        .iter()
+        .map(|pkg| {
+            install(
+                pkg,
+                config,
+                pb.clone().map(|pb| {
+                    move |event| match event {
+                        InstallEvent::DownloadSize(size) => {
+                            pb.lock().unwrap().inc_length(size);
+                        }
+                        InstallEvent::Progress(chunk) => {
+                            pb.lock().unwrap().inc(chunk);
+                        }
+                    }
+                }),
+            )
+        })
+        .collect::<FuturesUnordered<_>>()
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .collect()
+}
+
+fn configure_bar(pb: &ProgressBar) {
+    pb.set_length(1);
+    pb.set_style(
+        #[allow(clippy::literal_string_with_formatting_args)]
         ProgressStyle::with_template(
             "{elapsed:.dim} ❲{wide_bar:.red}❳ {percent}% {bytes_per_sec:.dim} {bytes:.dim}",
-        )?
+        )
+        .unwrap()
         .with_key("elapsed", |state: &ProgressState, w: &mut dyn Write| {
             let s = state.elapsed().as_secs_f64();
             let precision = precision(s);
             write!(w, "{:.precision$}s", s, precision = precision).unwrap()
         })
         .with_key("bytes", |state: &ProgressState, w: &mut dyn Write| {
-            let (right, divisor) = pretty_size(state.len().unwrap(), None);
+            let (right, divisor) = pretty_size(state.len().unwrap());
             let left = state.pos() as f64 / divisor as f64;
             let leftprecision = precision(left);
             write!(
@@ -38,41 +74,10 @@ pub async fn install_multi(
         })
         .progress_chars("⌬ "),
     );
-
-    let shared_state = Arc::new(Mutex::new(pb.clone()));
-
-    if !silent {
-        pb.enable_steady_tick(std::time::Duration::from_millis(100));
-        pb.tick();
-    } else {
-        pb.finish_and_clear();
-    }
-
-    let mut promises = Vec::new();
-    for pkg in pending {
-        let shared_state = Arc::clone(&shared_state);
-        let promise = install::install(pkg, config, move |event| match event {
-            install::InstallEvent::DownloadSize(size) => {
-                shared_state.lock().unwrap().inc_length(size);
-            }
-            install::InstallEvent::Progress(chunk) => {
-                shared_state.lock().unwrap().inc(chunk);
-            }
-        });
-        promises.push(promise);
-    }
-
-    let mut installations = vec![];
-    for result in join_all(promises).await {
-        installations.push(result?);
-    }
-
-    pb.finish_and_clear();
-
-    Ok(installations)
+    pb.enable_steady_tick(Duration::from_millis(50));
 }
 
-fn pretty_size(n: u64, fixed: Option<usize>) -> (String, u64) {
+fn pretty_size(n: u64) -> (String, u64) {
     let units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
     let mut size = n as f64;
     let mut i = 0;
@@ -84,9 +89,13 @@ fn pretty_size(n: u64, fixed: Option<usize>) -> (String, u64) {
         divisor *= 1024;
     }
 
-    let precision = fixed.unwrap_or_else(|| precision(size));
+    let formatted = format!(
+        "{:.precision$} {}",
+        size,
+        units[i],
+        precision = precision(size)
+    );
 
-    let formatted = format!("{:.precision$} {}", size, units[i], precision = precision);
     (formatted, divisor)
 }
 
