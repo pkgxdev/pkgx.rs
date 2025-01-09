@@ -742,7 +742,6 @@ dependencies = [
  "dirs-next",
  "fs2",
  "futures",
- "indicatif",
  "lazy_static",
  "libsemverator",
  "nix",
