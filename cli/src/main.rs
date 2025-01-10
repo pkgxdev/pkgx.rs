@@ -314,18 +314,15 @@ fn pretty_size(n: u64) -> (String, u64) {
     let mut i = 0;
     let mut divisor = 1;
 
-    while size > 1024.0 && i < units.len() - 1 {
+    while size >= 1000.0 && i < units.len() - 1 {
         size /= 1024.0;
         i += 1;
         divisor *= 1024;
     }
 
-    let formatted = format!(
-        "{:.precision$} {}",
-        size,
-        units[i],
-        precision = precision(size)
-    );
+    let precision = if i == 0 { 0 } else { precision(size) };
+
+    let formatted = format!("{:.precision$} {}", size, units[i], precision = precision);
 
     (formatted, divisor)
 }
