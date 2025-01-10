@@ -1,0 +1,126 @@
+name: cd
+
+# creates a draft release with srcs and binary products attached
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        required: true
+
+concurrency:
+  group: cd/${{ github.event.inputs.version }}
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    uses: ./.github/workflows/ci.yml
+
+  attach-srcs:
+    runs-on: ubuntu-latest
+    needs: [qa]
+    env:
+      FILENAME: pkgx-${{ github.event.inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ${{ env.FILENAME }}
+      - name: clean
+        run: rm -rf ${{ env.FILENAME }}/.github .gitbook.yml
+      - name: include GPG pubkey
+        run: echo "${{ secrets.GPG_PUBLIC_KEY }}" | base64 -d > $FILENAME/pkgx.dev.pub.asc
+      - run: tar cJf $FILENAME.tar.xz $FILENAME
+      - name: attach srcs to release
+        run: gh release upload --clobber
+          v${{ github.event.inputs.version }}
+          ../$FILENAME.tar.xz
+        working-directory:
+          ${{ env.FILENAME }}
+        env:
+          # using this token rather than github.token due to `release not found` bug
+          # https://github.com/pkgxdev/cli/issues/5252
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: srcs
+          path: ${{ env.FILENAME }}.tar.xz
+          if-no-files-found: error
+
+  attach-binary-products:
+    needs: attach-srcs
+    permissions:
+      actions: write
+    strategy:
+      matrix:
+        platform:
+        - os: ["self-hosted", "macOS", "X64"]
+          build-id: darwin+x86-64
+        - os: ubuntu-latest
+          build-id: linux+x86-64
+        - os: [self-hosted, macOS, ARM64]
+          build-id: darwin+aarch64
+        - os: [self-hosted, linux, ARM64]
+          build-id: linux+aarch64
+      fail-fast: false
+    runs-on: ${{ matrix.platform.os }}
+    name: ${{ matrix.platform.build-id }}
+    env:
+      FILENAME: pkgx-${{ github.event.inputs.version }}+${{ matrix.platform.build-id }}.tar.xz
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: srcs
+
+      - uses: pkgxdev/setup@v2
+        with:
+          +: unzip xz
+
+      - run: pkgx +xz tar xJf pkgx-${{ github.event.inputs.version }}.tar.xz --strip-components=1
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: |
+          cargo build --release
+          mv .target/release/pkgx .
+          strip ./pkgx
+
+      - uses: pkgxdev/brewkit/actions/setup-codesign@v0
+        if: startsWith(matrix.platform.build-id, 'darwin+')
+        with:
+            p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+            p12-password: ${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}
+
+      - run: codesign
+          --sign "$APPLE_IDENTITY" --force
+          --preserve-metadata=entitlements,requirements,flags,runtime ./pkgx
+        env:
+          APPLE_IDENTITY: ${{ secrets.APPLE_IDENTITY }}
+
+      - name: sanity check
+        run: test "$(./pkgx --version)" = "pkgx ${{ github.event.inputs.version }}"
+
+      - run: tar cJf $FILENAME pkgx
+
+      - name: GPG sign archive
+        # NOTE the +sqlite3 is a bug that we can’t figure out that only fails
+        # on darwin aarch64 in CI, the sqlite dep is not installed for some
+        # reason. Works locally! So we're confused and stuck.
+        run: |
+          ./pkgx gpg-agent --daemon || true
+          echo $GPG_PRIVATE_KEY | \
+            base64 -d | \
+            ./pkgx +sqlite3 gpg --import --batch --yes
+          ./pkgx gpg \
+            --detach-sign --armor \
+            --local-user $GPG_KEY_ID \
+            $FILENAME
+        env:
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+
+      - name: attach product to release
+        run: ./pkgx gh release upload --clobber
+          v${{ github.event.inputs.version }}
+          $FILENAME $FILENAME.asc
+        env:
+          GH_TOKEN: ${{ github.token }}

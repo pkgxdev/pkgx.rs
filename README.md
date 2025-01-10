@@ -1,6 +1,6 @@
 ![pkgx.dev](https://pkgx.dev/banner.png)
 
-`pkgx` is a 4.2MB, *standalone* binary that can *run anything*.
+`pkgx` is a 4MB, *standalone* binary that can *run anything*.
 &nbsp;&nbsp;[![coverage][]][coveralls] [![teaRank][]](https://tea.xyz)
 
 &nbsp;
@@ -24,12 +24,12 @@ $ deno
 command not found: deno
 
 $ pkgx deno
-Deno 1.36.3
+Deno 2.1.4
 > ^D
 
 $ deno
 command not found: deno
-# ^^ nothing was installed; your system remains untouched
+# ^^ nothing was installed; your system remains pristine
 ```
 
 
@@ -95,7 +95,7 @@ Python 2.7.18
 * <details><summary>CI/CD</summary><br>
 
   ```yaml
-  - uses: pkgxdev/setup@v1
+  - uses: pkgxdev/setup@v2
   - run: pkgx shellcheck
   ```
 
@@ -151,42 +151,50 @@ Python 2.7.18
 
 ## `dev`
 
-`dev` is a separate tool that leverages pkgx's core
-features to auto-detect and install project dependencies, seamlessly
-integrating them into your shell and editor.
+`dev` uses `pkgx` and shellcode to create “virtual environments” consisting
+of the specific versions of tools and their dependencies you need for your
+projects.
 
 ```sh
-my-rust-proj $ dev    # do `pkgx integrate --dry-run` first
-dev: found Cargo.toml; env +cargo +rust
+$ cd my-rust-proj && ls
+Cargo.toml  src/
 
-(+cargo+rust) my-rust-proj $ cargo build
+my-rust-proj $ cargo build
+command not found: cargo
+
+my-rust-proj $ dev
++rust +cargo
+
+my-rust-proj $ cargo build
 Compiling my-rust-proj v0.1.0
 #…
 ```
 
-The `dev` tool requires shell integration to work.
+> [github.com/pkgxdev/dev][dev]
 
-> [docs.pkgx.sh/dev][dev]
 
 ## `pkgm`
 
 `pkgm` installs `pkgx` packages to `/usr/local`. It installs alongside `pkgx`.
 
-> [github.com/pkgxdev/pkgm](https://github.com/pkgxdev/pkgm)
+> [github.com/pkgxdev/pkgm][pkgm]
+
 
 ## Scripting
 
-One of the most powerful uses of `pkgx` is scripting, eg. here’s a script
-to release new versions to GitHub:
+A powerful use of `pkgx` is scripting, eg. here’s a script to release new
+versions to GitHub:
 
 ```sh
-#!/usr/bin/env -S pkgx +gum +gh +npx +git bash -eo pipefail
+#!/usr/bin/env -S pkgx +gum +gh +npx +git bash>=4 -eo pipefail
 
-gum format "# Welcome to our Release Script"
+gum format "# determining new version"
 
 versions="$(git tag | grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+')"
 v_latest="$(npx -- semver --include-prerelease $versions | tail -n1)"
 v_new=$(npx -- semver bump $v_latest --increment $1)
+
+gum format "# releasing v$v_new"
 
 gh release create \
   $v_new \
@@ -202,14 +210,13 @@ all the tools we needed.
 > [teaBASE][teaBASE-release-script]
 
 There’s tools for just about every language ecosystem so you can import
-dependencies, eg. using `uv` to import python packages (and the specific
-python you want too):
+dependencies. For example, here we use `uv` to run a python script with
+pypi dependencies, and pkgx to load both `uv` and a specific python version:
 
 ```sh
 #!/usr/bin/env -S pkgx +python@3.11 uv run --script
 
 # /// script
-# requires-python = ">=3.11"
 # dependencies = [
 #   "requests<3",
 #   "rich",
@@ -224,6 +231,10 @@ data = resp.json()
 pprint([(k, v["title"]) for k, v in data.items()][:10])
 ```
 
+`pkgx` scripting is so awesome we made a package manager for scripts:
+[`mash`].
+
+
 ## Magic
 
 It can be fun to add magic to your shell:
@@ -235,8 +246,8 @@ command_not_found_handler() {
 }
 ```
 
-Thus if you type `gh` and not in your `PATH` pkgx will install it and run it
-as though it was installed all along.
+Thus if you type `gh` and it’s not installed pkgx will magically run it as
+though it was installed all along.
 
 > [!NOTE]
 > Bash is the same function but drop the `r` from the end of the name.
@@ -246,16 +257,17 @@ as though it was installed all along.
 
 ## Further Reading
 
-[docs.pkgx.sh][docs] is a comprehensive manual and user guide for `pkgx`.
+[docs.pkgx.sh][docs] is a comprehensive manual and user guide for the `pkgx`
+suite.
 
 &nbsp;
-
 
 
 # Contributing
 
 * To add packages see the [pantry README]
-* To hack on `pkgx` itself; clone it and we’re built in rust
+* To hack on `pkgx` itself; clone it and `cargo build`
+  * [`hydrate.rs`] is where optimization efforts will bear most fruit
 
 If you have questions or feedback:
 
@@ -272,10 +284,12 @@ If you have questions or feedback:
 [docs.pkgx.sh/editors]: https://docs.pkgx.sh/editors
 [docs.pkgx.sh/docker]: https://docs.pkgx.sh/docker
 [docs.pkgx.sh/installing-w/out-brew]: https://docs.pkgx.sh/installing-w/out-brew
-[docs.pkgx.sh/shell-integration]: https://docs.pkgx.sh/shell-integration
-[dev]: https://docs.pkgx.sh/dev
+[dev]: https://github.com/pkgxdev/dev
+[pkgm]: https://github.com/pkgxdev/pkgm
 [teaBASE-release-script]: https://github.com/teaxyz/teaBASE/blob/main/Scripts/publish-release.sh
 [Scriptisto]: https://github.com/igor-petruk/scriptisto
+[`hydrate.rs`]: src/hydrate.rs
+[`mash`]: https://github.com/pkgxdev/mash
 
 [coverage]: https://coveralls.io/repos/github/pkgxdev/pkgx/badge.svg?branch=main
 [coveralls]: https://coveralls.io/github/pkgxdev/pkgx?branch=main
