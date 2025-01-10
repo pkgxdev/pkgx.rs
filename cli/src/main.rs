@@ -310,29 +310,27 @@ fn configure_bar(pb: &ProgressBar) {
 
 fn pretty_size(n: u64) -> (String, u64) {
     let units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
-    let mut size = n as f64;
-    let mut i = 0;
-    let mut divisor = 1;
 
-    while size >= 1000.0 && i < units.len() - 1 {
-        size /= 1024.0;
-        i += 1;
-        divisor *= 1024;
-    }
+    // number of 1024s
+    let thousands = n.max(1).ilog(1024).clamp(0, units.len() as u32 - 1) as usize;
+    // size in the appropriate unit
+    let size = n as f64 / 1024.0f64.powi(thousands as i32);
+    // the divisor to get back to bytes
+    let divisor = 1024u64.pow(thousands as u32);
+    // number of decimal places to show (0 if we're bytes. no fractional bytes. come on.)
+    let precision = if thousands == 0 { 0 } else { precision(size) };
 
-    let precision = if i == 0 { 0 } else { precision(size) };
-
-    let formatted = format!("{:.precision$} {}", size, units[i], precision = precision);
+    let formatted = format!(
+        "{:.precision$} {}",
+        size,
+        units[thousands],
+        precision = precision
+    );
 
     (formatted, divisor)
 }
 
 fn precision(n: f64) -> usize {
-    if n < 10.0 {
-        2
-    } else if n < 100.0 {
-        1
-    } else {
-        0
-    }
+    // 1 > 1.00, 10 > 10.0, 100 > 100
+    2 - (n.log10().clamp(0.0, 2.0) as usize)
 }
