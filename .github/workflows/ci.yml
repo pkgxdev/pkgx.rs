@@ -12,6 +12,12 @@ name: ci·rs
 
 concurrency:
   group: ci·rs·${{ github.ref}}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
 
 jobs:
   check:
@@ -71,3 +77,28 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo run --all-features -- git --version
+
+  coverage:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-tarpaulin
+      - run: cargo tarpaulin -o lcov --output-dir coverage
+      - uses: coverallsapp/github-action@v2
+        with:
+          path-to-lcov: coverage/lcov.info
+          parallel: true
+          flag-name: ${{ matrix.os }}
+
+  upload-coverage:
+    needs: coverage
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true
