@@ -84,7 +84,7 @@ jobs:
           mv .target/release/pkgx .
           strip ./pkgx
 
-      - uses: pkgxdev/brewkit/actions/setup-codesign@v0
+      - uses: pkgxdev/brewkit/actions/setup-codesign@v1
         if: startsWith(matrix.platform.build-id, 'darwin+')
         with:
             p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_P12 }}
